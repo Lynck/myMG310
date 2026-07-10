@@ -1,0 +1,11 @@
+# CCS / MSPM0 build outputs
+Debug/
+Release/
+*.out
+*.o
+*.d
+*.map
+*_linkInfo.xml
+
+# Local editor files
+.vscode/
