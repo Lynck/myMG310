@@ -7,7 +7,7 @@
 #include "vl53l0x.h"
 #include "lsm6dsv16x.h"
 #include "imu660rb.h"
-#include "Code/encoder.h"
+#include "Code/motor_speed.h"
 
 uint8_t enable_group1_irq = 0;
 
@@ -29,25 +29,6 @@ void SysTick_Handler(void)
 {
     tick_ms++;
 
-    #if defined GPIO_ENCODER_PIN_A_PIN && defined GPIO_ENCODER_PIN_B_PIN
-    {
-        /* SysTick 兜底采样编码器上升沿，OLED 计数显示来自 enc_count_A/B。 */
-        static uint8_t last_A = 0;
-        static uint8_t last_B = 0;
-        uint8_t cur_A = (DL_GPIO_readPins(GPIOA, GPIO_ENCODER_PIN_A_PIN) != 0);
-        uint8_t cur_B = (DL_GPIO_readPins(GPIOA, GPIO_ENCODER_PIN_B_PIN) != 0);
-
-        if (cur_A && !last_A) {
-            enc_count_A++;
-        }
-        if (cur_B && !last_B) {
-            enc_count_B++;
-        }
-
-        last_A = cur_A;
-        last_B = cur_B;
-    }
-    #endif
 }
 
 #if defined UART_BNO08X_INST_IRQHandler
@@ -147,11 +128,11 @@ void GROUP1_IRQHandler(void)
     switch (DL_GPIO_getPendingInterrupt(GPIOA))
     {
         case GPIO_ENCODER_PIN_A_IIDX:
-            enc_count_A++;
+            MotorSpeed_OnPulseA();
             return;
 
         case GPIO_ENCODER_PIN_B_IIDX:
-            enc_count_B++;
+            MotorSpeed_OnPulseB();
             return;
 
         default:

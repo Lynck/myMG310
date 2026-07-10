@@ -1,6 +1,10 @@
 #include "encoder.h"
 #include "ti_msp_dl_config.h"
 
+/* CCS generated makefiles already build encoder.c; keep the new module linked without editing generated files. */
+#define MOTOR_SPEED_IMPLEMENTATION
+#include "motor_speed.c"
+
 /* 全局编码器脉冲计数器, 在 GROUP1 中断中累加 */
 volatile int32_t enc_count_A = 0;   /* 左轮: PA8 上升沿触发 */
 volatile int32_t enc_count_B = 0;   /* 右轮: PA16 上升沿触发 */

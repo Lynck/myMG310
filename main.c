@@ -9,7 +9,7 @@
 #include "motor.h"
 #include "myBluetooth.h"
 #include "imu660rb.h"
-#include "encoder.h"
+#include "motor_speed.h"
 #include "oled_software_i2c.h"
 #include "myTask.h"
 
@@ -87,7 +87,7 @@ int main(void)
     OLED_Init();
     IMU660RB_Init();
     Motor_Init();
-    Encoder_Init();
+    MotorSpeed_Init();
     Motor_Brake();
     Tracking_PID_Init();
 
@@ -101,14 +101,10 @@ int main(void)
     {
         if (timer_10ms_flag)
         {
-            int16_t enc_delta_A;
-            int16_t enc_delta_B;
-
             timer_10ms_flag = false;
 
             Read_IMU660RB();
-            Encoder_GetDeltas(&enc_delta_A, &enc_delta_B);
-            Encoder_UpdateSpeeds(enc_delta_A, enc_delta_B);
+            MotorSpeed_Update(0.01f);
 
             if (!startup_done) {
                 startup_tick++;
