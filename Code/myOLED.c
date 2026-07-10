@@ -39,7 +39,7 @@ void MainInterface_Show(void)
             MotorSpeed_DirChar(motor_speed_dir_B));
     OLED_ShowString(0, 4, (uint8_t *)text, 8);
 
-    sprintf(text, "Spd:%d PID:%4.1f", g_base_speed, tracking_pid.Out);
+    sprintf(text, "T:%dcm P:%4.1f", g_base_speed, tracking_pid.Out);
     OLED_ShowString(0, 5, (uint8_t *)text, 8);
 
     sprintf(text, "Task:%d", (uint8_t)current_task);

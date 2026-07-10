@@ -1,10 +1,11 @@
 #include "myPID.h"
 #include "PID.h"
 #include "motor.h"
+#include "motor_speed.h"
 #include "Grayscale_Sensor.h"
 
 /* 循迹参数：支持蓝牙动态调整。 */
-volatile int16_t g_base_speed = 20;          /* 基础直行速度，可通过 S:xx 修改。 */
+volatile int16_t g_base_speed = 30;          /* 基础直行速度，可通过 S:xx 修改。 */
 volatile float g_left_wheel_scale = 1.00f;   /* 左轮补偿系数，可通过 L:xx 修改。 */
 volatile float g_right_wheel_scale = 1.00f;  /* 右轮补偿系数，可通过 R:xx 修改。 */
 volatile bool g_line_follow_enabled = false; /* 循迹总开关。 */
@@ -12,6 +13,11 @@ volatile bool g_line_follow_enabled = false; /* 循迹总开关。 */
 /* 电机/传感器方向适配宏，只在接线或传感器方向相反时调整。 */
 #define SWAP_MOTORS       0
 #define REVERSE_PID_DIR   0
+
+/* g_base_speed 用作目标车速，单位约为 cm/s；30 => 0.30m/s。 */
+#define TRACKING_SPEED_CMD_TO_MPS     0.01f
+#define TRACKING_TARGET_SPEED_MPS     ((float)g_base_speed * TRACKING_SPEED_CMD_TO_MPS)
+#define TRACKING_SEARCH_CMD           20
 
 extern define_Data data_1;
 
@@ -51,6 +57,7 @@ void Tracking_PID_Reset(void)
     tracking_pid.Error1   = 0.0f;
     tracking_pid.ErrorInt = 0.0f;
     lost_line_state = 0;
+    MotorSpeed_ResetControl();
 }
 
 void Tracking_Process(void)
@@ -116,20 +123,20 @@ void Tracking_Process(void)
         {
             if (last_actual_pos > 4.0f)
             {
-                Motor_SetSpeed_A(-20);
-                Motor_SetSpeed_B(20);
+                Motor_SetSpeed_A(-TRACKING_SEARCH_CMD);
+                Motor_SetSpeed_B(TRACKING_SEARCH_CMD);
                 return;
             }
             else if (last_actual_pos < -4.0f)
             {
-                Motor_SetSpeed_A(20);
-                Motor_SetSpeed_B(-20);
+                Motor_SetSpeed_A(TRACKING_SEARCH_CMD);
+                Motor_SetSpeed_B(-TRACKING_SEARCH_CMD);
                 return;
             }
             else if (last_actual_pos >= -4.0f && last_actual_pos <= 4.0f)
             {
-                Motor_SetSpeed_A(g_base_speed);
-                Motor_SetSpeed_B(g_base_speed);
+                MotorSpeed_Control(TRACKING_TARGET_SPEED_MPS, 0, g_left_wheel_scale, g_right_wheel_scale);
+                return;
             }
             else
             {
@@ -142,13 +149,7 @@ void Tracking_Process(void)
     /* 5. 全黑一般是路口/宽黑带：不做差速修正，按基础速度直行通过。 */
     if (d1 && d2 && d3 && d4 && d5 && d6 && d7 && d8)
     {
-        #if (SWAP_MOTORS == 1)
-            Motor_SetSpeed_B((int16_t)(g_base_speed * g_right_wheel_scale));
-            Motor_SetSpeed_A((int16_t)(g_base_speed * g_left_wheel_scale));
-        #else
-            Motor_SetSpeed_A((int16_t)(g_base_speed * g_left_wheel_scale));
-            Motor_SetSpeed_B((int16_t)(g_base_speed * g_right_wheel_scale));
-        #endif
+        MotorSpeed_Control(TRACKING_TARGET_SPEED_MPS, 0, g_left_wheel_scale, g_right_wheel_scale);
         return;
     }
 
@@ -168,18 +169,10 @@ void Tracking_Process(void)
     // if (out_val >  max_diff) out_val =  max_diff;
     // if (out_val < -max_diff) out_val = -max_diff;
 
-    int16_t raw_speed_left  = g_base_speed + out_val;
-    int16_t raw_speed_right = g_base_speed - out_val;
-
-    int16_t speed_left  = (int16_t)(raw_speed_left * g_left_wheel_scale);
-    int16_t speed_right = (int16_t)(raw_speed_right * g_right_wheel_scale);
-
-    /* 7. 映射到 A/B 电机；若左右接线相反，只调整 SWAP_MOTORS。 */
+    /* 7. 速度闭环只控制左右平均速度；循迹 PID 的 out_val 只负责左右差速。 */
     #if (SWAP_MOTORS == 1)
-        Motor_SetSpeed_A(speed_right);
-        Motor_SetSpeed_B(speed_left);
+        MotorSpeed_Control(TRACKING_TARGET_SPEED_MPS, (int16_t)-out_val, g_right_wheel_scale, g_left_wheel_scale);
     #else
-        Motor_SetSpeed_A(speed_left);
-        Motor_SetSpeed_B(speed_right);
+        MotorSpeed_Control(TRACKING_TARGET_SPEED_MPS, out_val, g_left_wheel_scale, g_right_wheel_scale);
     #endif
 }

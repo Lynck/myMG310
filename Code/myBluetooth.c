@@ -8,7 +8,7 @@
  *    P:xx    set line PID Kp
  *    D:xx    set line PID Kd
  *    B:xx    set line PID deadband
- *    S:xx    set base speed, 0-100
+ *    S:xx    set target speed in cm/s
  *    L:xx    set left wheel scale
  *    R:xx    set right wheel scale
  *    E:xx    set encoder speed-match Kp
@@ -85,7 +85,7 @@ void Bluetooth_ParseCommand(char *packet)
         case 'S':
         case 's':
             g_base_speed = (int16_t)val;
-            sprintf(reply_buf, "OK! BaseSpeed set to %d\r\n", g_base_speed);
+            sprintf(reply_buf, "OK! TargetSpeed set to %dcm/s\r\n", g_base_speed);
             Bluetooth_SendString(reply_buf);
             break;
 
