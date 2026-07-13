@@ -31,9 +31,6 @@ void Motor_Init(void) {
  * @brief 电机 A 控制 (PWMA)
  */
 void Motor_SetSpeed_A(int16_t speed) {
-    //A电机取反
-    speed = -speed;
-
     /* speed �ķ��ž�������ת������ֵ�����ٷֱȣ���Χ������ -100~100�� */
     if (speed > 100)  speed = 100;
     if (speed < -100) speed = -100;
@@ -66,9 +63,7 @@ void Motor_SetSpeed_A(int16_t speed) {
  * @brief 电机 B 控制 (PWMB)
  */
 void Motor_SetSpeed_B(int16_t speed) {
-    /* B ͨ���� A ͨ��ͬ��ʹ�� -100~100 ���з����ٶȽӿڡ� */
-    //B取反
-    // speed = -speed;
+    speed = -speed;
 
     if (speed > 100)  speed = 100;
     if (speed < -100) speed = -100;

@@ -8,10 +8,10 @@
 #include "myPID.h"
 #include "motor.h"
 #include "myBluetooth.h"
-#include "imu660rb.h"
 #include "motor_speed.h"
 #include "oled_software_i2c.h"
 #include "myTask.h"
+#include "leader_distance.h"
 
 bool OLED_Flag;
 volatile uint16_t ADC_Val;
@@ -64,6 +64,7 @@ static void Key_Scan(uint16_t adc)
         } else {
             LineFollow_Start();
         }
+        while(middle_pressed);
     }
 
     //上键按下
@@ -76,6 +77,7 @@ static void Key_Scan(uint16_t adc)
         up_pressed = false;
         current_task ++;
         if(current_task == TASK_MAX) current_task = TASK_ID_1;
+        while(up_pressed);
     }
 }
 
@@ -85,11 +87,11 @@ int main(void)
     SysTick_Init();
 
     OLED_Init();
-    IMU660RB_Init();
     Motor_Init();
     MotorSpeed_Init();
     Motor_Brake();
     Tracking_PID_Init();
+    LeaderDistance_Init();
 
     NVIC_EnableIRQ(TIMER_100MS_INST_INT_IRQN);
     NVIC_EnableIRQ(TIMER_10MS_INST_INT_IRQN);
@@ -99,11 +101,12 @@ int main(void)
 
     while (1)
     {
+        LeaderDistance_Process();
+
         if (timer_10ms_flag)
         {
             timer_10ms_flag = false;
 
-            Read_IMU660RB();
             MotorSpeed_Update(0.01f);
 
             if (!startup_done) {

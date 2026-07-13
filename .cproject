@@ -35,7 +35,6 @@
                                     <listOptionValue value="${COM_TI_MSPM0_SDK_SYMBOLS}"/>
                                     <listOptionValue value="${SYSCONFIG_TOOL_SYMBOLS}"/>
                                     <listOptionValue value="MOTION_DRIVER_TARGET_MSPM0"/>
-                                    <listOptionValue value="MPU6050"/>
                                     <listOptionValue value="__MSPM0G3507__"/>
                                 </option>
                                 <option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.MARCH.788930055" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.MARCH" value="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.MARCH.thumbv6m" valueType="enumerated"/>
@@ -47,25 +46,19 @@
                                 <option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.INCLUDE_PATH.2108133230" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.INCLUDE_PATH" valueType="includePath">
                                     <listOptionValue value="${COM_TI_MSPM0_SDK_INCLUDE_PATH}"/>
                                     <listOptionValue value="${SYSCONFIG_TOOL_INCLUDE_PATH}"/>
-                                    <listOptionValue value="${PROJECT_ROOT}/Drivers/IMU660RB/Fusion"/>
-                                    <listOptionValue value="${PROJECT_ROOT}/Drivers/IMU660RB"/>
-                                    <listOptionValue value="${PROJECT_ROOT}/Drivers/LSM6DSV16X"/>
                                     <listOptionValue value="${PROJECT_ROOT}/Drivers/VL53L0X"/>
-                                    <listOptionValue value="${PROJECT_ROOT}/Drivers/WIT"/>
-                                    <listOptionValue value="${PROJECT_ROOT}/Drivers/BNO08X_UART_RVC"/>
                                     <listOptionValue value="${PROJECT_ROOT}/Drivers/Ultrasonic_GPIO"/>
                                     <listOptionValue value="${PROJECT_ROOT}/Drivers/Ultrasonic_Capture"/>
                                     <listOptionValue value="${PROJECT_ROOT}/Drivers/OLED_Hardware_I2C"/>
                                     <listOptionValue value="${PROJECT_ROOT}/Drivers/OLED_Hardware_SPI"/>
                                     <listOptionValue value="${PROJECT_ROOT}/Drivers/OLED_Software_I2C"/>
                                     <listOptionValue value="${PROJECT_ROOT}/Drivers/OLED_Software_SPI"/>
-                                    <listOptionValue value="${PROJECT_ROOT}/Drivers/MPU6050"/>
                                     <listOptionValue value="${PROJECT_ROOT}"/>
                                     <listOptionValue value="${PROJECT_ROOT}/${ConfigName}"/>
                                     <listOptionValue value="${COM_TI_MSPM0_SDK_INSTALL_DIR}/source/third_party/CMSIS/Core/Include"/>
                                     <listOptionValue value="${COM_TI_MSPM0_SDK_INSTALL_DIR}/source"/>
                                     <listOptionValue value="${PROJECT_ROOT}/Drivers/MSPM0"/>
-                                    <listOptionValue value="C:/Users/Lenovo/workspace_ccstheia/myMG310/Code"/>
+                                    <listOptionValue value="${PROJECT_ROOT}/Code"/>
                                 </option>
                                 <option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.GENERATE_DWARF_DEBUG.2113736898" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.GENERATE_DWARF_DEBUG" value="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.GENERATE_DWARF_DEBUG.GDWARF_3" valueType="enumerated"/>
                                 <option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.CMD_FILE.1049956277" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.CMD_FILE" valueType="stringList">
@@ -124,7 +117,7 @@
                         </toolChain>
                     </folderInfo>
                     <sourceEntries>
-                        <entry excluding="Drivers/OLED_Hardware_SPI|Drivers/LSM6DSV16X|Drivers/VL53L0X|Drivers/MPU6050|Drivers/OLED_Hardware_I2C|Drivers/BNO08X_UART_RVC|Drivers/WIT|Drivers/Ultrasonic_GPIO|Drivers/Ultrasonic_Capture|Drivers/OLED_Software_SPI" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+                        <entry excluding="Debug - 副本|Drivers/IMU660RB|Drivers/OLED_Hardware_SPI|Drivers/LSM6DSV16X|Drivers/VL53L0X|Drivers/MPU6050|Drivers/OLED_Hardware_I2C|Drivers/BNO08X_UART_RVC|Drivers/WIT|Drivers/Ultrasonic_GPIO|Drivers/Ultrasonic_Capture|Drivers/OLED_Software_SPI" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
                     </sourceEntries>
                 </configuration>
             </storageModule>

@@ -13,9 +13,9 @@
 #define MOTOR_SPEED_B_DIR_HIGH_FORWARD      1
 
 /* 速度闭环参数：输出是 Motor_SetSpeed 的 -100..100 命令值。 */
-#define MOTOR_SPEED_PID_KP                  10.0f
-#define MOTOR_SPEED_PID_KI                  0.10f
-#define MOTOR_SPEED_PID_KD                  0.0f
+#define MOTOR_SPEED_PID_KP                  250.f//速度环
+#define MOTOR_SPEED_PID_KI                  0.1f
+#define MOTOR_SPEED_PID_KD                  10.0f
 #define MOTOR_SPEED_FEEDFORWARD_CMD_PER_MPS 77.0f
 #define MOTOR_SPEED_MIN_FORWARD_CMD         18.0f
 #define MOTOR_SPEED_BASE_CMD_MAX            80.0f

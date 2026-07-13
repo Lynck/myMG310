@@ -15,4 +15,6 @@ void Tracking_PID_Init(void);
 void Tracking_PID_Reset(void);
 void Tracking_Process(void);
 
+void Tracking_PID2_Init(void);
+
 #endif
