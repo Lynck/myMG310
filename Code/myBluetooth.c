@@ -35,7 +35,7 @@ void Bluetooth_SendString(char *str)
 {
     while (*str)
     {
-        DL_UART_transmitDataBlocking(UART_0_INST, *str++);
+        DL_UART_transmitDataBlocking(UART_2_INST, *str++);
     }
 }
 
@@ -130,12 +130,12 @@ void Bluetooth_ParseCommand(char *packet)
 
 void UART_0_INST_IRQHandler(void)
 {
-    switch (DL_UART_getPendingInterrupt(UART_0_INST))
+    switch (DL_UART_getPendingInterrupt(UART_2_INST))
     {
         case DL_UART_IIDX_RX:
-            while (!DL_UART_isRXFIFOEmpty(UART_0_INST))
+            while (!DL_UART_isRXFIFOEmpty(UART_2_INST))
             {
-                char rx_data = (char)DL_UART_receiveData(UART_0_INST);
+                char rx_data = (char)DL_UART_receiveData(UART_2_INST);
 
                 if (rx_data == '\n' || rx_data == '\r')
                 {

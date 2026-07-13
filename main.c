@@ -64,6 +64,7 @@ static void Key_Scan(uint16_t adc)
         } else {
             LineFollow_Start();
         }
+        while(middle_pressed);
     }
 
     //上键按下
@@ -76,6 +77,7 @@ static void Key_Scan(uint16_t adc)
         up_pressed = false;
         current_task ++;
         if(current_task == TASK_MAX) current_task = TASK_ID_1;
+        while(up_pressed);
     }
 }
 
@@ -95,7 +97,7 @@ int main(void)
     NVIC_EnableIRQ(TIMER_10MS_INST_INT_IRQN);
     NVIC_EnableIRQ(ADC_BUTTON_INST_INT_IRQN);
     Interrupt_Init();
-    NVIC_EnableIRQ(UART_0_INST_INT_IRQN);
+    NVIC_EnableIRQ(UART_2_INST_INT_IRQN);
 
     while (1)
     {

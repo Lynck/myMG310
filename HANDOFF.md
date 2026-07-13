@@ -1,207 +1,291 @@
-# myMG310 工程交接摘要
+# myMG310 Handoff
 
-## 工程目标
+Date: 2026-07-11
 
-当前工程 `C:\Users\Lenovo\workspace_ccstheia\myMG310` 是 TI MSPM0G3507 + MG310 电机的小车基础框架。目标不是完整比赛任务，而是保留后续任务可复用的底盘能力：
+Project path: `C:\Users\Lenovo\workspace_ccstheia\myMG310`
 
-- 黑线循迹函数
-- PID
-- TB6612 电机驱动
-- MG310 编码器计数/转速
-- IMU660RB 陀螺仪 yaw
-- OLED 调试显示
-- 蓝牙调参/启停循迹
+Remote: `https://github.com/Lynck/myMG310.git`
 
-## 已删除/清理
+Branch: `main`
 
-- 已删除旧 H 题导航任务状态机：
-  - `Code/car_nav.c`
-  - `Code/car_nav.h`
-- `.cproject` 中也移除了 `Code/car_nav.c` 的排除残留。
-- 搜索确认已无 `car_nav`、`TASK_`、`NAV_`、`T:2/T:3/T:4` 等旧任务入口。
-
-## 当前保留的主要模块
-
-- `main.c`
-  - 初始化 SysConfig、SysTick、OLED、IMU660RB、电机、编码器、循迹 PID。
-  - 10ms 周期中读取 IMU、更新编码器速度、处理蓝牙命令、在使能后调用 `Tracking_Process()`。
-  - ADC 中间按键用于切换循迹启停。
-  - 100ms 定时器用于 OLED 刷新和丢线确认。
-
-- `Code/myPID.c`
-  - `Tracking_PID_Init()`
-  - `Tracking_PID_Reset()`
-  - `Tracking_Process()`
-  - 当前循迹使用单 IO 灰度读取 `Read_data_1_GPIO()`。
-  - 传感器原始值含义：`0 = 黑线`，`1 = 白底/没压线`。
-  - 内部取反后用 `1 = 检测到黑线` 做加权平均。
-
-- `Code/motor.c`
-  - `Motor_Init()`
-  - `Motor_SetSpeed_A(int16_t speed)`
-  - `Motor_SetSpeed_B(int16_t speed)`
-  - `Motor_Brake()`
-  - speed 范围为 `-100..100`。
-
-- `Code/encoder.c`
-  - `Encoder_Init()`
-  - `Encoder_GetDeltas()`
-  - `Encoder_UpdateSpeeds()`
-  - `enc_speed_A / enc_speed_B` 已在 `main.c` 的 10ms 周期更新。
-
-- `Code/myOLED.c`
-  - OLED 显示：
-    - `LINE:RUN/STOP`
-    - `Yaw`
-    - `VA/VB` 编码器速度
-    - `L:xxxxxxxx:R` 灰度数据
-    - `Spd/PID`
-  - 当前 OLED 每次刷新前会主动调用 `Read_data_1_GPIO()`，所以即使循迹没启动，也应该能看到灰度数据变化。
-
-- `Code/myBluetooth.c`
-  - `G` 启动循迹
-  - `T:0` 停止循迹
-  - `T:非0` 启动循迹
-  - `P/D/B/S/L/R/E` 用于 PID、速度、补偿、编码器参数调节
-
-## 编码状态
-
-已将当前参与编译的主要应用源码转为严格 UTF-8：
-
-- `main.c`
-- `main.h`
-- `Code/myPID.c`
-- `Code/myPID.h`
-- `Code/encoder.h`
-- `Drivers/MSPM0/interrupt.c`
-- 以及当前主要编译源码检查通过
-
-注意：`.cproject` 已排除的第三方 `Drivers/VL53L0X` 里仍可能有非 UTF-8 文件，之前没有改，避免无关大改。
-
-## 当前问题：OLED 灰度显示全 0
-
-用户现象：
-
-- OLED 显示的灰度数据全是 `0`
-- 变化黑线/白底时不改变
-- 用户感觉“灰度传感器数据没有传过来”
-
-当前 OLED 显示格式：
+Last pushed commit:
 
 ```text
-L:xxxxxxxx:R
+0de619f Tune motor speed control
+d8cc6f3 Add motor speed GPIO capture
+3ee3d53 Initial MSPM0 MG310 project
 ```
 
-8 位顺序为从左到右：
+## Project
 
-```text
-D8 D7 D6 D5 D4 D3 D2 D1
-```
+TI MSPM0G3507 / CCS Theia project using SysConfig.
 
-当前代码调用的是：
+Do not hand-edit generated files under `Debug/`, especially:
 
-```c
-Read_data_1_GPIO();
-```
+- `Debug/ti_msp_dl_config.c`
+- `Debug/ti_msp_dl_config.h`
+- `Debug/device_linker.cmd`
+- object/map/out files
 
-也就是单 IO 串行模式，使用 `PL/SCK/SDA`，不是 8 路并行 OUT0~OUT7 模式。
+Edit `mspm0-modules.syscfg` and source files instead.
 
-## 最重要怀疑点
+## Build And Check
 
-`Code/Grayscale_Sensor.h` 中写的是：
-
-```c
-#define PL_PORT  (GPIOB)
-#define PL_PIN   (DL_GPIO_PIN_3)
-
-#define SCK_PORT (GPIOB)
-#define SCK_PIN  (DL_GPIO_PIN_2)
-
-#define SDA_PORT (GPIOA)
-#define SDA_PIN  (DL_GPIO_PIN_17)
-```
-
-但是 `mspm0-modules.syscfg` 和 `Debug/ti_msp_dl_config.h` 显示 SysConfig 里灰度 `SDA` 配的是 `PA22`：
-
-```text
-GPIO10.$name                          = "SDA"
-GPIO10.associatedPins[0].direction    = "INPUT"
-GPIO10.associatedPins[0].assignedPort = "PORTA"
-GPIO10.associatedPins[0].assignedPin  = "22"
-GPIO10.associatedPins[0].$name        = "SDA_PIN"
-GPIO10.associatedPins[0].pin.$suggestSolution = "PA22"
-```
-
-生成头文件里对应：
-
-```c
-#define SDA_PORT        (GPIOA)
-#define SDA_SDA_PIN_PIN (DL_GPIO_PIN_22)
-```
-
-因此最大问题可能是：
-
-- 代码实际读 `PA17`
-- SysConfig 初始化的是 `PA22`
-- 实际硬件可能接的是 `PA22`
-
-这会导致代码一直读错脚，OLED 全 0。
-
-## 另一个可能原因
-
-灰度模块可能接的是 8 路独立输出 `OUT0~OUT7`，但当前代码使用的是单 IO 串行接口。
-
-如果硬件接法是 8 路 OUT 模式，就应该使用：
-
-```c
-Read_data_8_GPIO();
-data_8.D8 ... data_8.D1
-```
-
-而不是：
-
-```c
-Read_data_1_GPIO();
-data_1.D8 ... data_1.D1
-```
-
-## 建议新对话优先确认
-
-先问/查用户实际接线：
-
-1. 灰度模块是否是单 IO 串行模式？
-   - 接线应为 `PL / SCK / SDA`
-2. 还是 8 路并行模式？
-   - 接线应为 `OUT0~OUT7`
-3. 如果是单 IO 模式，SDA 实际接在 MSPM0 哪个脚？
-   - `PA17` 还是 `PA22`
-
-如果实际接的是 `PA22`，应改 `Code/Grayscale_Sensor.h`：
-
-```c
-#define SDA_PIN (DL_GPIO_PIN_22)
-```
-
-如果实际接的是 `PA17`，应改 `.syscfg` 中 SDA 到 PA17，并重新生成 SysConfig。
-
-如果实际接的是 8 路 OUT 模式，应改 OLED 和循迹读取链路使用 `Read_data_8_GPIO()` / `data_8`。
-
-## 最近编译命令
-
-在 `Debug` 目录执行：
+Build from `Debug`:
 
 ```powershell
 D:\TI\ccs\utils\bin\gmake.exe -k -j 8 all -r -O
 ```
 
-最近一次编译通过，生成：
+Clean build:
 
-```text
-Debug/myMG310.out
+```powershell
+D:\TI\ccs\utils\bin\gmake.exe -k clean all -r -O
 ```
 
-## 注意事项
+SysConfig static check:
 
-- 不要手改 `Debug/ti_msp_dl_config.c/h`，它们是 SysConfig 生成文件。
-- 如果要改引脚配置，优先改 `mspm0-modules.syscfg`，然后重新生成/编译。
-- 用户当前明确要求过“不要修改代码”来分析原因；下一步若要改，需要先明确实际接线。
+```powershell
+python C:\Users\Lenovo\.codex\skills\mspm0-ccs\scripts\check_syscfg.py C:\Users\Lenovo\workspace_ccstheia\myMG310
+```
+
+Latest validation before this handoff:
+
+- `gmake all` passed
+- `gmake clean all` passed
+- `check_syscfg.py` passed
+- `Debug\myMG310.out` generated
+
+## Current Git Status
+
+Current worktree is not clean.
+
+Modified files:
+
+- `Code/motor_speed.h`
+- `Code/myPID.c`
+- `main.c`
+
+Untracked:
+
+- `tmp\gyro_datasheet.pdf`
+
+Do not assume these local changes are pushed. The last pushed commit is still `0de619f`.
+
+## Current User Goal
+
+The user no longer wants to use the speed closed loop for line following. They want only the line-following loop to control left/right motor differential.
+
+Recent symptom:
+
+- With speed loop removed, car could not turn reliably in curves.
+- Then after aggressive lost-line recovery, car became unstable and kept swinging left/right.
+- Latest user request was to change lost-line recovery so it only starts searching when `last_actual_pos > 2.0` or `< -2.0`.
+
+This has already been changed in local `Code/myPID.c`:
+
+```c
+#define TRACKING_LOST_CENTER_BAND     2.0f
+```
+
+## Current Line-Following Logic
+
+Main file: `Code/myPID.c`
+
+Important current values:
+
+```c
+volatile int16_t g_base_speed = 22;
+
+#define SWAP_MOTORS       0
+#define REVERSE_PID_DIR   0
+
+#define TRACKING_SEARCH_CMD           (g_base_speed)
+#define TRACKING_LOST_CENTER_BAND     2.0f
+
+tracking_pid.Kp = 6.0f;
+tracking_pid.Ki = 0.0f;
+tracking_pid.Kd = 20.0f;
+tracking_pid.OutMax = 100.0f;
+tracking_pid.OutMin = -100.0f;
+tracking_pid.Deadband = 0.6f;
+```
+
+The line sensor convention in `Tracking_Process()` is:
+
+- Raw `data_1.Dx == 0` means black line.
+- Code inverts the raw values: `uint8_t d8 = !data_1.D8;`, so internal `d8..d1 == 1` means black detected.
+- Weighted position:
+  - `D8..D5` are positive weights: left side
+  - `D4..D1` are negative weights: right side
+  - `actual_pos` range is approximately `-4.0` to `4.0`
+
+Important bug that was fixed locally:
+
+- Old lost-line code tested `last_actual_pos > 4.0f` or `< -4.0f`.
+- Because `actual_pos` cannot normally exceed that range, the car almost never entered search-turn mode and often drove straight after losing the line.
+- Current threshold is `2.0f`.
+
+The current code no longer calls `MotorSpeed_Control()` from `myPID.c`.
+
+Current control path is:
+
+```text
+Read_data_1_GPIO()
+  -> compute actual_pos
+  -> PID_Update(&tracking_pid)
+  -> out_val
+  -> Tracking_SetMotorSpeeds(g_base_speed + out_val,
+                             g_base_speed - out_val)
+  -> Motor_SetSpeed_A/B()
+```
+
+`Tracking_SetMotorSpeeds()` also applies:
+
+- `g_left_wheel_scale`
+- `g_right_wheel_scale`
+- `SWAP_MOTORS`
+
+If the car corrects in the wrong direction, first try:
+
+```c
+#define REVERSE_PID_DIR   1
+```
+
+## Current Speed Capture / Speed Loop State
+
+Speed capture module still exists and is still built.
+
+Files:
+
+- `Code/motor_speed.c`
+- `Code/motor_speed.h`
+- `Code/encoder.c`
+- `Drivers/MSPM0/interrupt.c`
+
+Encoder pins:
+
+- Motor A capture: `PA8`
+- Motor A direction level: `PB18`
+- Motor B capture: `PA16`
+- Motor B direction level: `PA25`
+
+Wheel diameter:
+
+```c
+#define MOTOR_SPEED_WHEEL_CIRCUMFERENCE_M   (0.1508f) /* 48 mm wheel diameter. */
+```
+
+Current local speed-loop parameters in `Code/motor_speed.h`:
+
+```c
+#define MOTOR_SPEED_PID_KP                  250.f
+#define MOTOR_SPEED_PID_KI                  0.1f
+#define MOTOR_SPEED_PID_KD                  10.0f
+#define MOTOR_SPEED_FEEDFORWARD_CMD_PER_MPS 77.0f
+```
+
+Note: the user is not currently using this speed loop for line following, but `main.c` still calls:
+
+```c
+MotorSpeed_Init();
+MotorSpeed_Update(0.01f);
+```
+
+OLED still displays motor speeds.
+
+## Main Loop / Buttons
+
+Main file: `main.c`
+
+Relevant behavior:
+
+- 10 ms timer updates IMU and motor speed measurement.
+- If `startup_done && g_line_follow_enabled`, it calls `ExecuteTask(current_task)`.
+- `ExecuteTask(TASK_ID_1)` calls `Tracking_Process()`.
+- Middle key toggles line following.
+- Up key changes task.
+
+Current local diff added:
+
+```c
+while(middle_pressed);
+while(up_pressed);
+```
+
+These are probably ineffective because the variables are set to `false` immediately before the `while`. They are harmless but suspicious. Consider removing them before committing unless the user intended a blocking debounce.
+
+## Bluetooth / OLED
+
+Bluetooth command parser: `Code/myBluetooth.c`
+
+Useful commands:
+
+- `G`: start line following
+- `T:0`: stop
+- `T:1`: start
+- `P:xx`: line PID Kp
+- `D:xx`: line PID Kd
+- `B:xx`: line PID deadband
+- `S:xx`: set `g_base_speed`
+- `L:xx`: left wheel scale
+- `R:xx`: right wheel scale
+- `E:xx`: old encoder speed-match Kp variable
+
+OLED: `Code/myOLED.c`
+
+Displays:
+
+- line run/stop
+- yaw
+- A/B speed in m/s and direction
+- grayscale sensor bit pattern
+- target/base speed and line PID output
+- task id
+
+## Important Hardware / Control Notes
+
+`Motor_SetSpeed_A/B(int16_t speed)` takes roughly `-100..100`.
+
+Current `motor.c` maps PWM using `100 - speed`, and previous real test confirmed:
+
+- Fixed `Motor_SetSpeed_A/B(20, 30, 40, 50)` gave monotonically increasing speed.
+
+So PWM polarity likely works for command magnitude.
+
+Line-following instability can come from:
+
+- Lost-line threshold too small
+- `tracking_pid.Kd = 20.0f` too large
+- `tracking_pid.OutMax = 100.0f` too large
+- `g_base_speed` too high for current curve radius
+- Wrong correction direction (`REVERSE_PID_DIR`)
+- Sensor bit order mismatch
+
+Current likely next tuning steps:
+
+1. Test with `TRACKING_LOST_CENTER_BAND = 2.0f`.
+2. If still swinging, reduce `tracking_pid.Kd` from `20.0f` to `5.0f` or `10.0f`.
+3. If turns are too weak, keep `Kd` lower and increase `Kp` gradually, or reduce `g_base_speed`.
+4. If it turns the wrong way, flip `REVERSE_PID_DIR`.
+5. If curves fail only after total line loss, tune `TRACKING_LOST_CENTER_BAND` and `TRACKING_SEARCH_CMD`.
+
+## Encoding Warning
+
+Several existing source comments are mojibake in terminal output. Avoid large comment rewrites unless necessary. Keep code edits small.
+
+## Do Not Forget
+
+Before committing or pushing, run:
+
+```powershell
+D:\TI\ccs\utils\bin\gmake.exe -k -j 8 all -r -O
+python C:\Users\Lenovo\.codex\skills\mspm0-ccs\scripts\check_syscfg.py C:\Users\Lenovo\workspace_ccstheia\myMG310
+```
+
+If doing a clean verification:
+
+```powershell
+D:\TI\ccs\utils\bin\gmake.exe -k clean all -r -O
+```
+
