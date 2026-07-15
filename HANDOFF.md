@@ -1,291 +1,119 @@
-# myMG310 Handoff
+# myMG310slave Handoff
 
-Date: 2026-07-11
-
-Project path: `C:\Users\Lenovo\workspace_ccstheia\myMG310`
-
-Remote: `https://github.com/Lynck/myMG310.git`
-
-Branch: `main`
-
-Last pushed commit:
-
-```text
-0de619f Tune motor speed control
-d8cc6f3 Add motor speed GPIO capture
-3ee3d53 Initial MSPM0 MG310 project
-```
+Updated: 2026-07-15
 
 ## Project
 
-TI MSPM0G3507 / CCS Theia project using SysConfig.
+- Workspace: `C:\Users\Lenovo\workspace_ccstheia\myMG310slave`
+- Remote: `https://github.com/Lynck/myMG310.git`
+- Branch: `main`
+- Target: MSPM0G3507, CCS Theia, SysConfig, TI Arm Clang
 
-Do not hand-edit generated files under `Debug/`, especially:
+`mspm0-modules.syscfg` is the source of truth for peripherals and pins. Do not edit generated files under `Debug/`.
 
-- `Debug/ti_msp_dl_config.c`
-- `Debug/ti_msp_dl_config.h`
-- `Debug/device_linker.cmd`
-- object/map/out files
+## Current Hardware Configuration
 
-Edit `mspm0-modules.syscfg` and source files instead.
+Both UARTs use 115200 8N1 with RX FIFO interrupts.
 
-## Build And Check
+- CH9141K Bluetooth: generated name `UART_0`, hardware UART2
+  - TX: PA21
+  - RX: PA22
+- MCU-based 8-channel grayscale module: generated name `UART_GRAY`, hardware UART3
+  - TX: PB2
+  - RX: PB3
+  - Module TX must connect to PB3; common ground is required.
 
-Build from `Debug`:
+CH9141K follower module:
 
-```powershell
-D:\TI\ccs\utils\bin\gmake.exe -k -j 8 all -r -O
-```
+- Role: slave (`AT+BLEMODE=2`)
+- Address: `AF:39:63:E4:C2:84`
+- Leader pairing command: `AT+CONADD=AF:39:63:E4:C2:84,000000`
+- Exit AT mode with `AT+EXIT`.
 
-Clean build:
-
-```powershell
-D:\TI\ccs\utils\bin\gmake.exe -k clean all -r -O
-```
-
-SysConfig static check:
-
-```powershell
-python C:\Users\Lenovo\.codex\skills\mspm0-ccs\scripts\check_syscfg.py C:\Users\Lenovo\workspace_ccstheia\myMG310
-```
-
-Latest validation before this handoff:
-
-- `gmake all` passed
-- `gmake clean all` passed
-- `check_syscfg.py` passed
-- `Debug\myMG310.out` generated
-
-## Current Git Status
-
-Current worktree is not clean.
-
-Modified files:
-
-- `Code/motor_speed.h`
-- `Code/myPID.c`
-- `main.c`
-
-Untracked:
-
-- `tmp\gyro_datasheet.pdf`
-
-Do not assume these local changes are pushed. The last pushed commit is still `0de619f`.
-
-## Current User Goal
-
-The user no longer wants to use the speed closed loop for line following. They want only the line-following loop to control left/right motor differential.
-
-Recent symptom:
-
-- With speed loop removed, car could not turn reliably in curves.
-- Then after aggressive lost-line recovery, car became unstable and kept swinging left/right.
-- Latest user request was to change lost-line recovery so it only starts searching when `last_actual_pos > 2.0` or `< -2.0`.
-
-This has already been changed in local `Code/myPID.c`:
-
-```c
-#define TRACKING_LOST_CENTER_BAND     2.0f
-```
-
-## Current Line-Following Logic
-
-Main file: `Code/myPID.c`
-
-Important current values:
-
-```c
-volatile int16_t g_base_speed = 22;
-
-#define SWAP_MOTORS       0
-#define REVERSE_PID_DIR   0
-
-#define TRACKING_SEARCH_CMD           (g_base_speed)
-#define TRACKING_LOST_CENTER_BAND     2.0f
-
-tracking_pid.Kp = 6.0f;
-tracking_pid.Ki = 0.0f;
-tracking_pid.Kd = 20.0f;
-tracking_pid.OutMax = 100.0f;
-tracking_pid.OutMin = -100.0f;
-tracking_pid.Deadband = 0.6f;
-```
-
-The line sensor convention in `Tracking_Process()` is:
-
-- Raw `data_1.Dx == 0` means black line.
-- Code inverts the raw values: `uint8_t d8 = !data_1.D8;`, so internal `d8..d1 == 1` means black detected.
-- Weighted position:
-  - `D8..D5` are positive weights: left side
-  - `D4..D1` are negative weights: right side
-  - `actual_pos` range is approximately `-4.0` to `4.0`
-
-Important bug that was fixed locally:
-
-- Old lost-line code tested `last_actual_pos > 4.0f` or `< -4.0f`.
-- Because `actual_pos` cannot normally exceed that range, the car almost never entered search-turn mode and often drove straight after losing the line.
-- Current threshold is `2.0f`.
-
-The current code no longer calls `MotorSpeed_Control()` from `myPID.c`.
-
-Current control path is:
-
-```text
-Read_data_1_GPIO()
-  -> compute actual_pos
-  -> PID_Update(&tracking_pid)
-  -> out_val
-  -> Tracking_SetMotorSpeeds(g_base_speed + out_val,
-                             g_base_speed - out_val)
-  -> Motor_SetSpeed_A/B()
-```
-
-`Tracking_SetMotorSpeeds()` also applies:
-
-- `g_left_wheel_scale`
-- `g_right_wheel_scale`
-- `SWAP_MOTORS`
-
-If the car corrects in the wrong direction, first try:
-
-```c
-#define REVERSE_PID_DIR   1
-```
-
-## Current Speed Capture / Speed Loop State
-
-Speed capture module still exists and is still built.
+## Grayscale UART Driver
 
 Files:
 
-- `Code/motor_speed.c`
-- `Code/motor_speed.h`
-- `Code/encoder.c`
-- `Drivers/MSPM0/interrupt.c`
+- `Code/grayscale_uart.c`
+- `Code/grayscale_uart.h`
 
-Encoder pins:
+Supported frames:
 
-- Motor A capture: `PA8`
-- Motor A direction level: `PB18`
-- Motor B capture: `PA16`
-- Motor B direction level: `PA25`
+- `AA 81 xx`: 8-channel binary state used by line following
+- `AA 80 ...` and `AA 82 ... AA 86 ...`: eight 16-bit channel values
 
-Wheel diameter:
+Line-following convention:
 
-```c
-#define MOTOR_SPEED_WHEEL_CIRCUMFERENCE_M   (0.1508f) /* 48 mm wheel diameter. */
-```
+- bit7 is the leftmost sensor; bit0 is the rightmost sensor.
+- `Grayscale_UART_GetBlackMask()` normalizes the result to `1 = black`.
+- Current `GRAYSCALE_UART_BLACK_LEVEL` is `1U`; change it if OLED black/white is inverted.
 
-Current local speed-loop parameters in `Code/motor_speed.h`:
+OLED row 2 displays `L:BBBBWWWW:R`; `B` means black, `W` means white, and `-` means no valid `AA 81 xx` frame has arrived.
 
-```c
-#define MOTOR_SPEED_PID_KP                  250.f
-#define MOTOR_SPEED_PID_KI                  0.1f
-#define MOTOR_SPEED_PID_KD                  10.0f
-#define MOTOR_SPEED_FEEDFORWARD_CMD_PER_MPS 77.0f
-```
+The previous GPIO grayscale driver files remain in the tree but active line following and OLED code no longer call them.
 
-Note: the user is not currently using this speed loop for line following, but `main.c` still calls:
+## Line Following
 
-```c
-MotorSpeed_Init();
-MotorSpeed_Update(0.01f);
-```
+Main control file: `Code/myPID.c`.
 
-OLED still displays motor speeds.
+- Default task 1 gains: Kp 6, Ki 0, Kd 20
+- Task 2 gains: Kp 12, Ki 0, Kd 30
+- Sensor weights remain `+4,+3,+2,+1,-1,-2,-3,-4`.
+- Lost-line threshold remains `2.0f`.
+- `leader_distance` is no longer used and its source files were removed.
 
-## Main Loop / Buttons
+## Bluetooth Commands
 
-Main file: `main.c`
+Parser: `Code/myBluetooth.c`.
 
-Relevant behavior:
+Commands are ASCII and are executed only after CR or LF:
 
-- 10 ms timer updates IMU and motor speed measurement.
-- If `startup_done && g_line_follow_enabled`, it calls `ExecuteTask(current_task)`.
-- `ExecuteTask(TASK_ID_1)` calls `Tracking_Process()`.
-- Middle key toggles line following.
-- Up key changes task.
+- `C:t:r` - synchronize task/run state
+- `P:value` - set line Kp
+- `D:value` - set line Kd
+- `B:value` - set deadband
+- `S:value` - set base speed
+- `L:value`, `R:value` - wheel scale
+- `E:value` - encoder speed-match gain
 
-Current local diff added:
+Example `D:1\r\n` bytes: `44 3A 31 0D 0A`.
 
-```c
-while(middle_pressed);
-while(up_pressed);
-```
+Important current behavior:
 
-These are probably ineffective because the variables are set to `false` immediately before the `while`. They are harmless but suspicious. Consider removing them before committing unless the user intended a blocking debounce.
+- The firmware does not echo command success to the phone.
+- OLED shows PID output, not Kp/Kd.
+- `Tracking_PID_Init()` overwrites gains when a task is entered. Send tuning commands after line following has started, or change initialization behavior.
+- Use `S:10\r\n` as a visible receive test; OLED `T:` should change to 10 in task 1.
 
-## Bluetooth / OLED
+## Removed / Inactive Features
 
-Bluetooth command parser: `Code/myBluetooth.c`
+- `Code/leader_distance.c/.h` removed.
+- `Drivers/Ultrasonic_GPIO/ultrasonic_gpio.c/.h` removed.
+- `TIMER_ULTRASONIC` still exists in SysConfig but currently has no runtime consumer; it can be cleaned up later.
 
-Useful commands:
+## Validation
 
-- `G`: start line following
-- `T:0`: stop
-- `T:1`: start
-- `P:xx`: line PID Kp
-- `D:xx`: line PID Kd
-- `B:xx`: line PID deadband
-- `S:xx`: set `g_base_speed`
-- `L:xx`: left wheel scale
-- `R:xx`: right wheel scale
-- `E:xx`: old encoder speed-match Kp variable
-
-OLED: `Code/myOLED.c`
-
-Displays:
-
-- line run/stop
-- yaw
-- A/B speed in m/s and direction
-- grayscale sensor bit pattern
-- target/base speed and line PID output
-- task id
-
-## Important Hardware / Control Notes
-
-`Motor_SetSpeed_A/B(int16_t speed)` takes roughly `-100..100`.
-
-Current `motor.c` maps PWM using `100 - speed`, and previous real test confirmed:
-
-- Fixed `Motor_SetSpeed_A/B(20, 30, 40, 50)` gave monotonically increasing speed.
-
-So PWM polarity likely works for command magnitude.
-
-Line-following instability can come from:
-
-- Lost-line threshold too small
-- `tracking_pid.Kd = 20.0f` too large
-- `tracking_pid.OutMax = 100.0f` too large
-- `g_base_speed` too high for current curve radius
-- Wrong correction direction (`REVERSE_PID_DIR`)
-- Sensor bit order mismatch
-
-Current likely next tuning steps:
-
-1. Test with `TRACKING_LOST_CENTER_BAND = 2.0f`.
-2. If still swinging, reduce `tracking_pid.Kd` from `20.0f` to `5.0f` or `10.0f`.
-3. If turns are too weak, keep `Kd` lower and increase `Kp` gradually, or reduce `g_base_speed`.
-4. If it turns the wrong way, flip `REVERSE_PID_DIR`.
-5. If curves fail only after total line loss, tune `TRACKING_LOST_CENTER_BAND` and `TRACKING_SEARCH_CMD`.
-
-## Encoding Warning
-
-Several existing source comments are mojibake in terminal output. Avoid large comment rewrites unless necessary. Keep code edits small.
-
-## Do Not Forget
-
-Before committing or pushing, run:
+Latest clean build passed on 2026-07-15:
 
 ```powershell
-D:\TI\ccs\utils\bin\gmake.exe -k -j 8 all -r -O
-python C:\Users\Lenovo\.codex\skills\mspm0-ccs\scripts\check_syscfg.py C:\Users\Lenovo\workspace_ccstheia\myMG310
+D:\TI\ccs\utils\bin\gmake.exe clean -r -O
+D:\TI\ccs\utils\bin\gmake.exe -j 32 all -r -O
 ```
 
-If doing a clean verification:
+Output: `Debug\myMG310slave.out`.
+
+Static check:
 
 ```powershell
-D:\TI\ccs\utils\bin\gmake.exe -k clean all -r -O
+python C:\Users\Lenovo\.codex\skills\mspm0-ccs\scripts\check_syscfg.py C:\Users\Lenovo\workspace_ccstheia\myMG310slave
 ```
 
+## Suggested Skills
+
+- `mspm0-ccs` for SysConfig, UART, build, flash, and DriverLib work.
+- `diagnosing-bugs` for missing UART data or intermittent hardware behavior.
+- `ponytail` for minimal firmware changes.
+
+## Recommended Next Work
+
+Add a minimal Bluetooth acknowledgement or show Kp/Kd on OLED so phone tuning can be verified. Preserve CR/LF parsing and test with `S:10` before changing the parser.

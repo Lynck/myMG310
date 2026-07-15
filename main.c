@@ -4,14 +4,13 @@
 
 #include "main.h"
 #include "myOLED.h"
-#include "Grayscale_Sensor.h"
 #include "myPID.h"
 #include "motor.h"
 #include "myBluetooth.h"
 #include "motor_speed.h"
 #include "oled_software_i2c.h"
 #include "myTask.h"
-#include "leader_distance.h"
+#include "grayscale_uart.h"
 
 bool OLED_Flag;
 volatile uint16_t ADC_Val;
@@ -51,7 +50,6 @@ static void Key_Scan(uint16_t adc)
     bool middle_now = (adc >= ADC_MIDDLE_MIN) && (adc <= ADC_MIDDLE_MAX);
     bool up_now = (adc >= ADC_UP_MIN) && (adc <= ADC_UP_MAX);
 
-    //中键按下
     if (middle_now) {
         middle_pressed = true;
         return;
@@ -59,15 +57,14 @@ static void Key_Scan(uint16_t adc)
 
     if (middle_pressed) {
         middle_pressed = false;
+        Bluetooth_EnterLocalDebugMode();
         if (g_line_follow_enabled) {
             LineFollow_Stop();
         } else {
             LineFollow_Start();
         }
-        while(middle_pressed);
     }
 
-    //上键按下
     if (up_now) {
         up_pressed = true;
         return;
@@ -75,9 +72,11 @@ static void Key_Scan(uint16_t adc)
 
     if (up_pressed) {
         up_pressed = false;
-        current_task ++;
-        if(current_task == TASK_MAX) current_task = TASK_ID_1;
-        while(up_pressed);
+        Bluetooth_EnterLocalDebugMode();
+        current_task++;
+        if (current_task == TASK_MAX) {
+            current_task = TASK_ID_1;
+        }
     }
 }
 
@@ -91,7 +90,7 @@ int main(void)
     MotorSpeed_Init();
     Motor_Brake();
     Tracking_PID_Init();
-    LeaderDistance_Init();
+    Grayscale_UART_Init();
 
     NVIC_EnableIRQ(TIMER_100MS_INST_INT_IRQN);
     NVIC_EnableIRQ(TIMER_10MS_INST_INT_IRQN);
@@ -101,7 +100,10 @@ int main(void)
 
     while (1)
     {
-        LeaderDistance_Process();
+        if (bt_cmd_ready_flag) {
+            Bluetooth_ParseCommand(bt_rx_buffer);
+            bt_cmd_ready_flag = false;
+        }
 
         if (timer_10ms_flag)
         {
@@ -116,10 +118,7 @@ int main(void)
                 }
             }
 
-            if (bt_cmd_ready_flag) {
-                bt_cmd_ready_flag = false;
-                Bluetooth_ParseCommand(bt_rx_buffer);
-            }
+            Bluetooth_CheckSyncTimeout();
 
             if (startup_done && g_line_follow_enabled) {
                 ExecuteTask(current_task);

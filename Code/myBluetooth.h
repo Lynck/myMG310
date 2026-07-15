@@ -4,7 +4,8 @@
 #include <stdbool.h>
 
 void Bluetooth_ParseCommand(char *packet);
-void Bluetooth_SendString(char *str);
+void Bluetooth_CheckSyncTimeout(void);
+void Bluetooth_EnterLocalDebugMode(void);
 
 extern volatile bool bt_cmd_ready_flag;
 extern char bt_rx_buffer[];

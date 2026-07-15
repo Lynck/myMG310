@@ -1,7 +1,7 @@
 #include "myPID.h"
 #include "PID.h"
 #include "motor.h"
-#include "Grayscale_Sensor.h"
+#include "grayscale_uart.h"
 #include "myTask.h"
 
 /* 循迹参数：支持蓝牙动态调整。 */
@@ -18,15 +18,10 @@ volatile bool g_line_follow_enabled = false; /* 循迹总开关。 */
 #define TRACKING_SEARCH_CMD           (g_base_speed)
 #define TRACKING_LOST_CENTER_BAND     2.0f
 
-extern define_Data data_1;
-
 PID_t tracking_pid;
 
 /* 上一次有效黑线位置；完全丢线时用它判断该往哪边找线。 */
 static float last_actual_pos = 0.0f;
-
-/*记录行驶过的圈数*/
-uint8_t circle_num = 0;
 
 static void Tracking_SetMotorSpeeds(int16_t left_cmd, int16_t right_cmd)
 {
@@ -88,21 +83,21 @@ void Tracking_PID_Reset(void)
 
 void Tracking_Process(void)
 {
-    /* 1. 刷新灰度传感器数据。 */
-    Read_data_1_GPIO();
+    uint8_t black_mask;
 
-    /*
-     * 2. 传感器原始值为 0 表示黑线。
-     *    这里取反成 1=检测到黑线，便于后面加权求和。
-     */
-    uint8_t d8 = !data_1.D8; /* 最左端 */
-    uint8_t d7 = !data_1.D7;
-    uint8_t d6 = !data_1.D6;
-    uint8_t d5 = !data_1.D5;
-    uint8_t d4 = !data_1.D4;
-    uint8_t d3 = !data_1.D3;
-    uint8_t d2 = !data_1.D2;
-    uint8_t d1 = !data_1.D1; /* 最右端 */
+    if (!Grayscale_UART_GetBlackMask(&black_mask)) {
+        return;
+    }
+
+    /* bit7 is leftmost, bit0 is rightmost, and 1 means black line. */
+    uint8_t d8 = (black_mask >> 7U) & 1U; /* leftmost */
+    uint8_t d7 = (black_mask >> 6U) & 1U;
+    uint8_t d6 = (black_mask >> 5U) & 1U;
+    uint8_t d5 = (black_mask >> 4U) & 1U;
+    uint8_t d4 = (black_mask >> 3U) & 1U;
+    uint8_t d3 = (black_mask >> 2U) & 1U;
+    uint8_t d2 = (black_mask >> 1U) & 1U;
+    uint8_t d1 = black_mask & 1U;         /* rightmost */
 
     int32_t sum_bits = d1 + d2 + d3 + d4 + d5 + d6 + d7 + d8;
     float actual_pos = 0.0f;
@@ -160,25 +155,4 @@ void Tracking_Process(void)
     Tracking_SetMotorSpeeds((int16_t)(g_base_speed + out_val),
                             (int16_t)(g_base_speed - out_val));
 
-    if((sum_bits == 4 || sum_bits == 3) && ((d3 && d4) || (d4 && d5) || (d2 && d3)))
-    {
-        if(able_stop)
-        {
-            able_stop = 0;
-            Motor_Brake();
-            g_line_follow_enabled = false;
-            current_task = TASK_ID_2;
-        }
-        if(is_speed_50)
-        {
-            circle_num ++;
-            if(circle_num == 2)
-            {
-                circle_num = 0;
-                is_speed_50 = 0;
-                g_line_follow_enabled = false;
-                current_task = TASK_ID_3;
-            }
-        }
-    }
 }

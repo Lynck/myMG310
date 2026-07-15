@@ -3,8 +3,6 @@
 
 #include "ti_msp_dl_config.h"
 
-#define TASK1_DISTANCE_TARGET_CM 20.0f
-
 typedef enum Type_e{
     TASK_ID_1 = 0,
     TASK_ID_2,

@@ -6,17 +6,15 @@
 #include <stdio.h>
 #include "oled_software_i2c.h"
 #include "PID.h"
-#include "Grayscale_Sensor.h"
+#include "grayscale_uart.h"
 #include "motor_speed.h"
 #include "myPID.h"
 #include "myTask.h"
-#include "leader_distance.h"
 
 void MainInterface_Show(void)
 {
     char text[64];
-
-    Read_data_1_GPIO();
+    uint8_t black_mask;
 
     sprintf(text, "LINE:%s", g_line_follow_enabled ? "RUN " : "STOP");
     OLED_ShowString(0, 0, (uint8_t *)text, 8);
@@ -25,9 +23,19 @@ void MainInterface_Show(void)
             MotorSpeed_DirChar(motor_speed_dir_A));
     OLED_ShowString(0, 1, (uint8_t *)text, 8);
 
-    sprintf(text, "L:%d%d%d%d%d%d%d%d:R",
-            data_1.D8, data_1.D7, data_1.D6, data_1.D5,
-            data_1.D4, data_1.D3, data_1.D2, data_1.D1);
+    if (Grayscale_UART_GetBlackMask(&black_mask)) {
+        sprintf(text, "L:%c%c%c%c%c%c%c%c:R",
+                (black_mask & 0x80U) ? 'B' : 'W',
+                (black_mask & 0x40U) ? 'B' : 'W',
+                (black_mask & 0x20U) ? 'B' : 'W',
+                (black_mask & 0x10U) ? 'B' : 'W',
+                (black_mask & 0x08U) ? 'B' : 'W',
+                (black_mask & 0x04U) ? 'B' : 'W',
+                (black_mask & 0x02U) ? 'B' : 'W',
+                (black_mask & 0x01U) ? 'B' : 'W');
+    } else {
+        sprintf(text, "L:--------:R");
+    }
     OLED_ShowString(0, 2, (uint8_t *)text, 8);
 
     extern PID_t tracking_pid;
@@ -40,12 +48,4 @@ void MainInterface_Show(void)
 
     sprintf(text, "Task:%d", (uint8_t)current_task);
     OLED_ShowString(0, 5, (uint8_t *)text, 8);
-
-    if (g_leader_distance_valid) {
-        sprintf(text, "D:%5.1f/%2.0fcm", g_leader_distance_cm,
-                TASK1_DISTANCE_TARGET_CM);
-    } else {
-        sprintf(text, "D: --.-/%2.0fcm", TASK1_DISTANCE_TARGET_CM);
-    }
-    OLED_ShowString(0, 6, (uint8_t *)text, 8);
 }

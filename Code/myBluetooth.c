@@ -2,9 +2,7 @@
  *  myBluetooth.c - UART command parser for the reusable car frame
  * ================================================================
  *  Commands end with CR/LF:
- *    G       start line following
- *    T:0     stop line following
- *    T:1     start line following
+ *    C:t:r   synchronize task t and run state r from the leader
  *    P:xx    set line PID Kp
  *    D:xx    set line PID Kd
  *    B:xx    set line PID deadband
@@ -18,7 +16,9 @@
 #include "myPID.h"
 #include "PID.h"
 #include "encoder.h"
-#include <stdio.h>
+#include "motor.h"
+#include "myTask.h"
+#include "clock.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
@@ -27,15 +27,23 @@
 extern PID_t tracking_pid;
 
 #define BT_RX_BUF_SIZE  64
+#define BT_SYNC_TIMEOUT_MS 500UL
 char bt_rx_buffer[BT_RX_BUF_SIZE];
 uint16_t bt_rx_index = 0;
 volatile bool bt_cmd_ready_flag = false;
+static unsigned long bt_last_sync_ms = 0UL;
+static bool bt_sync_received = false;
 
-void Bluetooth_SendString(char *str)
+static void Bluetooth_SetLineFollowEnabled(bool enabled)
 {
-    while (*str)
-    {
-        DL_UART_transmitDataBlocking(UART_0_INST, *str++);
+    if (enabled) {
+        if (!g_line_follow_enabled) {
+            Tracking_PID_Reset();
+            g_line_follow_enabled = true;
+        }
+    } else {
+        g_line_follow_enabled = false;
+        Motor_Brake();
     }
 }
 
@@ -43,17 +51,24 @@ void Bluetooth_ParseCommand(char *packet)
 {
     char cmd_type = packet[0];
     float val = 0.0f;
-    char reply_buf[64];
+    size_t packet_len = strlen(packet);
 
-    if ((cmd_type == 'G' || cmd_type == 'g') && packet[1] == '\0') {
-        Tracking_PID_Reset();
-        g_line_follow_enabled = true;
-        Bluetooth_SendString("OK! Line follow started!\r\n");
+    if (cmd_type == 'C') {
+        if ((packet_len == 5U) &&
+            (packet[1] == ':') &&
+            (packet[2] >= '0') &&
+            (packet[2] < ('0' + TASK_MAX)) &&
+            (packet[3] == ':') &&
+            ((packet[4] == '0') || (packet[4] == '1'))) {
+            bt_last_sync_ms = tick_ms;
+            bt_sync_received = true;
+            current_task = (Task_t)(packet[2] - '0');
+            Bluetooth_SetLineFollowEnabled(packet[4] == '1');
+        }
         return;
     }
 
-    if (strlen(packet) < 3 || packet[1] != ':') {
-        Bluetooth_SendString("Error: Invalid Format!\r\n");
+    if (packet_len < 3U || packet[1] != ':') {
         return;
     }
 
@@ -64,68 +79,55 @@ void Bluetooth_ParseCommand(char *packet)
         case 'P':
         case 'p':
             tracking_pid.Kp = val;
-            sprintf(reply_buf, "OK! Kp set to %.2f\r\n", tracking_pid.Kp);
-            Bluetooth_SendString(reply_buf);
             break;
 
         case 'D':
         case 'd':
             tracking_pid.Kd = val;
-            sprintf(reply_buf, "OK! Kd set to %.2f\r\n", tracking_pid.Kd);
-            Bluetooth_SendString(reply_buf);
             break;
 
         case 'B':
         case 'b':
             tracking_pid.Deadband = val;
-            sprintf(reply_buf, "OK! Deadband set to %.2f\r\n", tracking_pid.Deadband);
-            Bluetooth_SendString(reply_buf);
             break;
 
         case 'S':
         case 's':
             g_base_speed = (int16_t)val;
-            sprintf(reply_buf, "OK! TargetSpeed set to %dcm/s\r\n", g_base_speed);
-            Bluetooth_SendString(reply_buf);
             break;
 
         case 'L':
         case 'l':
             g_left_wheel_scale = val;
-            sprintf(reply_buf, "OK! LeftScale set to %.2f\r\n", g_left_wheel_scale);
-            Bluetooth_SendString(reply_buf);
             break;
 
         case 'R':
         case 'r':
             g_right_wheel_scale = val;
-            sprintf(reply_buf, "OK! RightScale set to %.2f\r\n", g_right_wheel_scale);
-            Bluetooth_SendString(reply_buf);
             break;
 
         case 'E':
         case 'e':
             g_enc_kp = val;
-            sprintf(reply_buf, "OK! EncoderKP set to %.2f\r\n", g_enc_kp);
-            Bluetooth_SendString(reply_buf);
-            break;
-
-        case 'T':
-        case 't':
-            if ((int8_t)val == 0) {
-                g_line_follow_enabled = false;
-                Bluetooth_SendString("OK! Line follow stopped!\r\n");
-            } else {
-                Tracking_PID_Reset();
-                g_line_follow_enabled = true;
-                Bluetooth_SendString("OK! Line follow started!\r\n");
-            }
             break;
 
         default:
-            Bluetooth_SendString("Error: Unknown Command!\r\n");
             break;
     }
+}
+
+void Bluetooth_CheckSyncTimeout(void)
+{
+    if (bt_sync_received &&
+        g_line_follow_enabled &&
+        ((tick_ms - bt_last_sync_ms) > BT_SYNC_TIMEOUT_MS)) {
+        Bluetooth_SetLineFollowEnabled(false);
+    }
+}
+
+void Bluetooth_EnterLocalDebugMode(void)
+{
+    bt_sync_received = false;
 }
 
 void UART_0_INST_IRQHandler(void)
@@ -136,6 +138,10 @@ void UART_0_INST_IRQHandler(void)
             while (!DL_UART_isRXFIFOEmpty(UART_0_INST))
             {
                 char rx_data = (char)DL_UART_receiveData(UART_0_INST);
+
+                if (bt_cmd_ready_flag) {
+                    continue;
+                }
 
                 if (rx_data == '\n' || rx_data == '\r')
                 {
