@@ -6,8 +6,8 @@
 #include <string.h>
 #include "clock.h"
 
-#define I2C_TIME_OUT_BASE   10
-#define I2C_TIME_OUT_BYTE   1
+#define I2C_TIME_OUT_BASE   10U
+#define I2C_TIME_OUT_BYTE   1U
 #define VL53L0X_OsDelay(...) mspm0_delay_ms(2)
 
 //extern I2C_HandleTypeDef hi2c1;
@@ -32,6 +32,20 @@
 
 
 uint8_t _I2CBuffer[64];
+
+static int _I2CWaitIdle(unsigned long start, unsigned long timeout_ms)
+{
+    unsigned long now;
+
+    while (!(DL_I2C_getControllerStatus(I2C_VL53L0X_INST) &
+             DL_I2C_CONTROLLER_STATUS_IDLE)) {
+        mspm0_get_clock_ms(&now);
+        if ((now - start) >= timeout_ms) {
+            return -1;
+        }
+    }
+    return 0;
+}
 
 void _I2CDisable(void)
 {
@@ -80,19 +94,24 @@ void _I2CUnlock(void)
 
 int _I2CWrite(VL53L0X_DEV Dev, uint8_t *pdata, uint32_t count)
 {
-    int i2c_time_out = I2C_TIME_OUT_BASE+ count* I2C_TIME_OUT_BYTE;
+    unsigned long i2c_time_out = I2C_TIME_OUT_BASE + count * I2C_TIME_OUT_BYTE;
     unsigned int cnt = count;
     unsigned char const *ptr = pdata;
     unsigned long start, cur;
 
-    if (!pdata)
+    if ((pdata == NULL) || (Dev == NULL))
+        return -1;
+    if (count == 0U)
         return 0;
 
     mspm0_get_clock_ms(&start);
 
     DL_I2C_clearInterruptStatus(I2C_VL53L0X_INST, DL_I2C_INTERRUPT_CONTROLLER_TX_DONE);
 
-    while (!(DL_I2C_getControllerStatus(I2C_VL53L0X_INST) & DL_I2C_CONTROLLER_STATUS_IDLE));
+    if (_I2CWaitIdle(start, i2c_time_out) != 0) {
+        _I2CUnlock();
+        return -1;
+    }
 
     DL_I2C_startControllerTransfer(I2C_VL53L0X_INST, Dev->I2cDevAddr, DL_I2C_CONTROLLER_DIRECTION_TX, count);
 
@@ -103,7 +122,7 @@ int _I2CWrite(VL53L0X_DEV Dev, uint8_t *pdata, uint32_t count)
         ptr += fillcnt;
 
         mspm0_get_clock_ms(&cur);
-        if(cur >= (start + i2c_time_out))
+        if ((cur - start) >= i2c_time_out)
         {
             _I2CUnlock();
             return -1;
@@ -115,11 +134,12 @@ int _I2CWrite(VL53L0X_DEV Dev, uint8_t *pdata, uint32_t count)
 
 int _I2CRead(VL53L0X_DEV Dev, uint8_t *pdata, uint32_t count)
 {
-    int status;
-    int i2c_time_out = I2C_TIME_OUT_BASE+ count* I2C_TIME_OUT_BYTE;
+    unsigned long i2c_time_out = I2C_TIME_OUT_BASE + count * I2C_TIME_OUT_BYTE;
     unsigned i = 0;
     unsigned long start, cur;
 
+    if ((pdata == NULL) || (Dev == NULL))
+        return -1;
     if (!count)
         return 0;
 
@@ -127,9 +147,12 @@ int _I2CRead(VL53L0X_DEV Dev, uint8_t *pdata, uint32_t count)
 
     DL_I2C_clearInterruptStatus(I2C_VL53L0X_INST, DL_I2C_INTERRUPT_CONTROLLER_RX_DONE);
 
-    while (!(DL_I2C_getControllerStatus(I2C_VL53L0X_INST) & DL_I2C_CONTROLLER_STATUS_IDLE));
+    if (_I2CWaitIdle(start, i2c_time_out) != 0) {
+        _I2CUnlock();
+        return -1;
+    }
 
-    DL_I2C_startControllerTransfer(I2C_VL53L0X_INST, Dev->I2cDevAddr|1, DL_I2C_CONTROLLER_DIRECTION_RX, count);
+    DL_I2C_startControllerTransfer(I2C_VL53L0X_INST, Dev->I2cDevAddr, DL_I2C_CONTROLLER_DIRECTION_RX, count);
 
     do {
         if (!DL_I2C_isControllerRXFIFOEmpty(I2C_VL53L0X_INST))
@@ -144,7 +167,7 @@ int _I2CRead(VL53L0X_DEV Dev, uint8_t *pdata, uint32_t count)
         }
         
         mspm0_get_clock_ms(&cur);
-        if(cur >= (start + i2c_time_out))
+        if ((cur - start) >= i2c_time_out)
         {
             _I2CUnlock();
             return -1;

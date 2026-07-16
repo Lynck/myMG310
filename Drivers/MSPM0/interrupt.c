@@ -47,7 +47,7 @@ void GROUP1_IRQHandler(void)
 #if defined(GPIO_VL53L0X_PIN_VL53L0X_GPIO1_PORT) && \
     (GPIO_VL53L0X_PIN_VL53L0X_GPIO1_PORT == GPIOA)
                 case GPIO_VL53L0X_PIN_VL53L0X_GPIO1_IIDX:
-                    Read_VL53L0X();
+                    (void)VL53L0X_Process();
                     break;
 #endif
                 default:
@@ -62,7 +62,7 @@ void GROUP1_IRQHandler(void)
 #if defined(GPIO_VL53L0X_PIN_VL53L0X_GPIO1_PORT) && \
     (GPIO_VL53L0X_PIN_VL53L0X_GPIO1_PORT == GPIOB)
                 case GPIO_VL53L0X_PIN_VL53L0X_GPIO1_IIDX:
-                    Read_VL53L0X();
+                    (void)VL53L0X_Process();
                     break;
 #endif
                 default:
@@ -73,7 +73,7 @@ void GROUP1_IRQHandler(void)
 
 #if defined GPIO_VL53L0X_INT_IIDX
         case GPIO_VL53L0X_INT_IIDX:
-            Read_VL53L0X();
+            (void)VL53L0X_Process();
             break;
 #endif
 

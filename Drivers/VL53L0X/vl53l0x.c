@@ -1,106 +1,107 @@
 #include "vl53l0x.h"
-#include "vl53l0x_api.h"
+
 #include "clock.h"
-#include "interrupt.h"
+#include "vl53l0x_api.h"
 
-typedef enum {
-	LONG_RANGE 		= 0, /*!< Long range mode */
-	HIGH_SPEED 		= 1, /*!< High speed mode */
-	HIGH_ACCURACY	= 2, /*!< High accuracy mode */
-} RangingConfig_e;
+#define VL53L0X_DEFAULT_TIMING_BUDGET_US (33000UL)
+#define VL53L0X_MODEL_ID                 (0xEEAAU)
 
-RangingConfig_e RangingConfig = HIGH_ACCURACY;
-
-VL53L0X_Dev_t VL53L0XDevs[]={
-        {.Id=0, .I2cDevAddr=0x29, .Present=1},
+static VL53L0X_Dev_t sensor = {
+    .Id = 0,
+    .I2cDevAddr = VL53L0X_I2C_ADDRESS_7BIT,
+    .Present = 1,
 };
 
-VL53L0X_RangingMeasurementData_t RangingMeasurementData;
+static VL53L0X_RangingMeasurementData_t measurement;
+static uint16_t latest_distance_mm;
+static bool initialized;
+static bool distance_valid;
 
-void VL53L0X_Init(void)
+#define VL53L0X_TRY(expression)                         \
+    do {                                                \
+        if ((expression) != VL53L0X_ERROR_NONE) {       \
+            initialized = false;                        \
+            distance_valid = false;                     \
+            return false;                               \
+        }                                               \
+    } while (0)
+
+bool VL53L0X_Init(void)
 {
-    uint16_t Id;
-    int status = 0;
-    uint8_t VhvSettings;
-    uint8_t PhaseCal;
-    uint32_t refSpadCount;
-    uint8_t isApertureSpads;
+    uint16_t model_id;
+    uint8_t vhv_settings;
+    uint8_t phase_cal;
+    uint32_t ref_spad_count;
+    uint8_t is_aperture_spads;
 
-    FixPoint1616_t signalLimit = (FixPoint1616_t)(0.25*65536);
-	FixPoint1616_t sigmaLimit = (FixPoint1616_t)(18*65536);
-	uint32_t timingBudget = 33000;
-	uint8_t preRangeVcselPeriod = 14;
-	uint8_t finalRangeVcselPeriod = 10;
+    initialized = false;
+    distance_valid = false;
 
-    VL53L0X_Dev_t *pDev;
-    pDev = &VL53L0XDevs[0];
+    /* The GY-VL53L0XV2 board pulls XSHUT high, so only boot time is needed. */
+    mspm0_delay_ms(3U);
 
-    DL_GPIO_clearPins(GPIO_VL53L0X_PIN_VL53L0X_XSHUT_PORT, GPIO_VL53L0X_PIN_VL53L0X_XSHUT_PIN);
-    mspm0_delay_ms(1);
-    DL_GPIO_setPins(GPIO_VL53L0X_PIN_VL53L0X_XSHUT_PORT, GPIO_VL53L0X_PIN_VL53L0X_XSHUT_PIN);
-    mspm0_delay_ms(1);
-
-    status += VL53L0X_WrByte(pDev, 0x88, 0x00);
-    status += VL53L0X_RdWord(pDev, VL53L0X_REG_IDENTIFICATION_MODEL_ID, &Id);
-    status += VL53L0X_DataInit(pDev);
-    status += VL53L0X_StaticInit(pDev);
-    status += VL53L0X_PerformRefSpadManagement(pDev, &refSpadCount, &isApertureSpads);
-    status += VL53L0X_PerformRefCalibration(pDev, &VhvSettings, &PhaseCal);
-
-    status += VL53L0X_SetDeviceMode(pDev, VL53L0X_DEVICEMODE_CONTINUOUS_RANGING);
-    status += VL53L0X_SetLimitCheckEnable(pDev, VL53L0X_CHECKENABLE_SIGMA_FINAL_RANGE, 1);
-    status += VL53L0X_SetLimitCheckEnable(pDev, VL53L0X_CHECKENABLE_SIGNAL_RATE_FINAL_RANGE, 1);
-
-    /* Ranging configuration */
-    switch(RangingConfig) 
-    {
-        case LONG_RANGE:
-            signalLimit = (FixPoint1616_t)(0.1*65536);
-            sigmaLimit = (FixPoint1616_t)(60*65536);
-            timingBudget = 33000;
-            preRangeVcselPeriod = 18;
-            finalRangeVcselPeriod = 14;
-            break;
-        case HIGH_ACCURACY:
-            signalLimit = (FixPoint1616_t)(0.25*65536);
-            sigmaLimit = (FixPoint1616_t)(18*65536);
-            timingBudget = 200000;
-            preRangeVcselPeriod = 14;
-            finalRangeVcselPeriod = 10;
-            break;
-        case HIGH_SPEED:
-            signalLimit = (FixPoint1616_t)(0.25*65536);
-            sigmaLimit = (FixPoint1616_t)(32*65536);
-            timingBudget = 20000;
-            preRangeVcselPeriod = 14;
-            finalRangeVcselPeriod = 10;
-            break;
+    VL53L0X_TRY(VL53L0X_RdWord(
+        &sensor, VL53L0X_REG_IDENTIFICATION_MODEL_ID, &model_id));
+    if (model_id != VL53L0X_MODEL_ID) {
+        return false;
     }
 
-    status += VL53L0X_SetLimitCheckValue(pDev,  VL53L0X_CHECKENABLE_SIGNAL_RATE_FINAL_RANGE, signalLimit);
-    status += VL53L0X_SetLimitCheckValue(pDev,  VL53L0X_CHECKENABLE_SIGMA_FINAL_RANGE, sigmaLimit);
-    status += VL53L0X_SetMeasurementTimingBudgetMicroSeconds(pDev,  timingBudget);
-    status += VL53L0X_SetVcselPulsePeriod(pDev,  VL53L0X_VCSEL_PERIOD_PRE_RANGE, preRangeVcselPeriod);
-    status += VL53L0X_SetVcselPulsePeriod(pDev,  VL53L0X_VCSEL_PERIOD_FINAL_RANGE, finalRangeVcselPeriod);
-    status += VL53L0X_PerformRefCalibration(pDev, &VhvSettings, &PhaseCal);
+    VL53L0X_TRY(VL53L0X_DataInit(&sensor));
+    VL53L0X_TRY(VL53L0X_StaticInit(&sensor));
+    VL53L0X_TRY(VL53L0X_PerformRefSpadManagement(
+        &sensor, &ref_spad_count, &is_aperture_spads));
+    VL53L0X_TRY(VL53L0X_PerformRefCalibration(
+        &sensor, &vhv_settings, &phase_cal));
+    VL53L0X_TRY(VL53L0X_SetDeviceMode(
+        &sensor, VL53L0X_DEVICEMODE_CONTINUOUS_RANGING));
+    VL53L0X_TRY(VL53L0X_SetMeasurementTimingBudgetMicroSeconds(
+        &sensor, VL53L0X_DEFAULT_TIMING_BUDGET_US));
+    VL53L0X_TRY(VL53L0X_ClearInterruptMask(&sensor, 0U));
+    VL53L0X_TRY(VL53L0X_StartMeasurement(&sensor));
 
-    status += VL53L0X_SetGpioConfig(pDev, 0, VL53L0X_DEVICEMODE_CONTINUOUS_RANGING, VL53L0X_GPIOFUNCTIONALITY_NEW_MEASURE_READY, VL53L0X_INTERRUPTPOLARITY_LOW);
-    status += VL53L0X_ClearInterruptMask(pDev, 0);
-
-    if (status || (Id != 0xEEAA))
-        return;
-
-    /* Enable INT_GROUP1 handler. */
-    enable_group1_irq = 1;
-
-    VL53L0X_StartMeasurement(pDev);
+    initialized = true;
+    return true;
 }
 
-void Read_VL53L0X(void)
+bool VL53L0X_Process(void)
 {
-    VL53L0X_Dev_t *pDev;
-    pDev = &VL53L0XDevs[0];
+    uint8_t measurement_ready = 0U;
 
-    VL53L0X_GetRangingMeasurementData(pDev, &RangingMeasurementData);
-    VL53L0X_ClearInterruptMask(pDev, 0);
+    if (!initialized) {
+        return false;
+    }
+
+    if (VL53L0X_GetMeasurementDataReady(&sensor, &measurement_ready) !=
+        VL53L0X_ERROR_NONE) {
+        initialized = false;
+        distance_valid = false;
+        return false;
+    }
+    if (measurement_ready == 0U) {
+        return false;
+    }
+
+    if (VL53L0X_GetRangingMeasurementData(&sensor, &measurement) !=
+        VL53L0X_ERROR_NONE) {
+        initialized = false;
+        distance_valid = false;
+        return false;
+    }
+    (void)VL53L0X_ClearInterruptMask(&sensor, 0U);
+
+    distance_valid = (measurement.RangeStatus == 0U);
+    if (distance_valid) {
+        latest_distance_mm = measurement.RangeMilliMeter;
+    }
+    return distance_valid;
+}
+
+bool VL53L0X_GetDistance(uint16_t *distance_mm)
+{
+    if ((distance_mm == NULL) || !distance_valid) {
+        return false;
+    }
+
+    *distance_mm = latest_distance_mm;
+    return true;
 }

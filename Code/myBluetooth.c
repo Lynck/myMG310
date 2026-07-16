@@ -14,7 +14,6 @@
 
 #include "ti_msp_dl_config.h"
 #include "myPID.h"
-#include "PID.h"
 #include "encoder.h"
 #include "motor.h"
 #include "myTask.h"
@@ -23,8 +22,6 @@
 #include <string.h>
 #include <stdint.h>
 #include "myBluetooth.h"
-
-extern PID_t tracking_pid;
 
 #define BT_RX_BUF_SIZE  64
 #define BT_SYNC_TIMEOUT_MS 500UL
@@ -63,7 +60,15 @@ void Bluetooth_ParseCommand(char *packet)
             bt_last_sync_ms = tick_ms;
             bt_sync_received = true;
             current_task = (Task_t)(packet[2] - '0');
-            Bluetooth_SetLineFollowEnabled(packet[4] == '1');
+            bool run_enabled = (packet[4] == '1');
+            bool was_running = g_line_follow_enabled;
+
+            Bluetooth_SetLineFollowEnabled(run_enabled);
+            if (was_running && !run_enabled) {
+                DL_GPIO_setPins(BUZZER_PORT, BUZZER_PIN_9_PIN);
+                mspm0_delay_ms(100U);
+                DL_GPIO_clearPins(BUZZER_PORT, BUZZER_PIN_9_PIN);
+            }
         }
         return;
     }
@@ -78,17 +83,17 @@ void Bluetooth_ParseCommand(char *packet)
     {
         case 'P':
         case 'p':
-            tracking_pid.Kp = val;
+            tracking_pid.Config.Kp = val;
             break;
 
         case 'D':
         case 'd':
-            tracking_pid.Kd = val;
+            tracking_pid.Config.Kd = val;
             break;
 
         case 'B':
         case 'b':
-            tracking_pid.Deadband = val;
+            tracking_pid.Config.Deadband = val;
             break;
 
         case 'S':

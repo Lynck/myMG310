@@ -11,6 +11,7 @@
 #include "oled_software_i2c.h"
 #include "myTask.h"
 #include "grayscale_uart.h"
+#include "vl53l0x.h"
 
 bool OLED_Flag;
 volatile uint16_t ADC_Val;
@@ -20,7 +21,7 @@ bool timer_10ms_flag;
 volatile bool start_100ms_timer = false;
 volatile bool check_100ms_flag  = false;
 
-#define STARTUP_DELAY_TICKS   300U
+#define STARTUP_DELAY_TICKS   100U
 #define ADC_MIDDLE_MIN        3000U
 #define ADC_MIDDLE_MAX        3100U
 #define ADC_UP_MIN            2000U
@@ -91,6 +92,7 @@ int main(void)
     Motor_Brake();
     Tracking_PID_Init();
     Grayscale_UART_Init();
+    (void)VL53L0X_Init();
 
     NVIC_EnableIRQ(TIMER_100MS_INST_INT_IRQN);
     NVIC_EnableIRQ(TIMER_10MS_INST_INT_IRQN);
@@ -110,6 +112,7 @@ int main(void)
             timer_10ms_flag = false;
 
             MotorSpeed_Update(0.01f);
+            (void)VL53L0X_Process();
 
             if (!startup_done) {
                 startup_tick++;

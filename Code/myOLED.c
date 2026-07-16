@@ -5,16 +5,17 @@
 #include "ti_msp_dl_config.h"
 #include <stdio.h>
 #include "oled_software_i2c.h"
-#include "PID.h"
 #include "grayscale_uart.h"
 #include "motor_speed.h"
 #include "myPID.h"
 #include "myTask.h"
+#include "vl53l0x.h"
 
 void MainInterface_Show(void)
 {
     char text[64];
     uint8_t black_mask;
+    uint16_t distance_mm;
 
     sprintf(text, "LINE:%s", g_line_follow_enabled ? "RUN " : "STOP");
     OLED_ShowString(0, 0, (uint8_t *)text, 8);
@@ -38,7 +39,6 @@ void MainInterface_Show(void)
     }
     OLED_ShowString(0, 2, (uint8_t *)text, 8);
 
-    extern PID_t tracking_pid;
     sprintf(text, "B:%4.2f%c m/s", motor_speed_B_mps < 0 ? -motor_speed_B_mps : motor_speed_B_mps,
             MotorSpeed_DirChar(motor_speed_dir_B));
     OLED_ShowString(0, 3, (uint8_t *)text, 8);
@@ -48,4 +48,11 @@ void MainInterface_Show(void)
 
     sprintf(text, "Task:%d", (uint8_t)current_task);
     OLED_ShowString(0, 5, (uint8_t *)text, 8);
+
+    if (VL53L0X_GetDistance(&distance_mm)) {
+        sprintf(text, "TOF:%4umm", distance_mm);
+    } else {
+        sprintf(text, "TOF:----mm");
+    }
+    OLED_ShowString(0, 6, (uint8_t *)text, 8);
 }
