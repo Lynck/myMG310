@@ -130,7 +130,7 @@ GPIO10.$name                          = "SDA";
 GPIO10.associatedPins[0].direction    = "INPUT";
 GPIO10.associatedPins[0].assignedPort = "PORTA";
 GPIO10.associatedPins[0].$name        = "SDA_PIN";
-GPIO10.associatedPins[0].assignedPin  = "22";
+GPIO10.associatedPins[0].assignedPin  = "31";
 
 GPIO11.$name                          = "GPIO_ENCODER";
 GPIO11.associatedPins.create(2);
@@ -255,7 +255,7 @@ ProjectConfig.migrationCondition = true;
  */
 GPIO8.associatedPins[0].pin.$suggestSolution  = "PB3";
 GPIO9.associatedPins[0].pin.$suggestSolution  = "PB2";
-GPIO10.associatedPins[0].pin.$suggestSolution = "PA22";
+GPIO10.associatedPins[0].pin.$suggestSolution = "PA31";
 GPIO11.associatedPins[0].pin.$suggestSolution = "PA8";
 GPIO11.associatedPins[1].pin.$suggestSolution = "PA16";
 GPIO12.associatedPins[0].pin.$suggestSolution = "PB9";
@@ -263,5 +263,5 @@ GPIO13.associatedPins[0].pin.$suggestSolution = "PA5";
 GPIO14.associatedPins[0].pin.$suggestSolution = "PB18";
 GPIO15.associatedPins[0].pin.$suggestSolution = "PA25";
 TIMER2.peripheral.$suggestSolution            = "TIMA1";
-UART1.peripheral.rxPin.$suggestSolution       = "PB16";
+UART1.peripheral.rxPin.$suggestSolution       = "PA22";
 UART1.peripheral.txPin.$suggestSolution       = "PA21";

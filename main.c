@@ -21,16 +21,39 @@ bool timer_10ms_flag;
 volatile bool start_100ms_timer = false;
 volatile bool check_100ms_flag  = false;
 
-#define STARTUP_DELAY_TICKS   300U
+#define STARTUP_DELAY_TICKS   100U
 #define ADC_MIDDLE_MIN        3000U
 #define ADC_MIDDLE_MAX        3100U
 #define ADC_UP_MIN            2000U
 #define ADC_UP_MAX            2100U
+#define BLUETOOTH_SYNC_PERIOD_TICKS 20U
 
 static uint16_t startup_tick = 0;
 static bool startup_done = false;
 static bool middle_pressed = false;
 static bool up_pressed = false;
+static Task_t last_synced_task = TASK_MAX;
+static bool last_synced_running = false;
+static uint8_t bluetooth_sync_tick = 0U;
+
+static void Bluetooth_SyncState(void)
+{
+    bool running = g_line_follow_enabled;
+    bool changed = (current_task != last_synced_task) ||
+                   (running != last_synced_running);
+
+    if (!changed) {
+        bluetooth_sync_tick++;
+        if (bluetooth_sync_tick < BLUETOOTH_SYNC_PERIOD_TICKS) {
+            return;
+        }
+    }
+
+    Bluetooth_SendSyncState((uint8_t)current_task, running);
+    last_synced_task = current_task;
+    last_synced_running = running;
+    bluetooth_sync_tick = 0U;
+}
 
 static void LineFollow_Start(void)
 {
@@ -101,6 +124,11 @@ int main(void)
 
     while (1)
     {
+        if (bt_cmd_ready_flag) {
+            Bluetooth_ParseCommand(bt_rx_buffer);
+            bt_cmd_ready_flag = false;
+        }
+
         if (timer_10ms_flag)
         {
             timer_10ms_flag = false;
@@ -115,14 +143,11 @@ int main(void)
                 }
             }
 
-            if (bt_cmd_ready_flag) {
-                bt_cmd_ready_flag = false;
-                Bluetooth_ParseCommand(bt_rx_buffer);
-            }
-
             if (startup_done && g_line_follow_enabled) {
                 ExecuteTask(current_task);
             }
+
+            Bluetooth_SyncState();
         }
 
         if (ADC_Flag) {

@@ -6,7 +6,6 @@
 #include <stdio.h>
 #include "oled_software_i2c.h"
 #include "imu660rb.h"
-#include "PID.h"
 #include "Grayscale_Sensor.h"
 #include "motor_speed.h"
 #include "myPID.h"
@@ -34,7 +33,6 @@ void MainInterface_Show(void)
             data_1.D4, data_1.D3, data_1.D2, data_1.D1);
     OLED_ShowString(0, 3, (uint8_t *)text, 8);
 
-    extern PID_t tracking_pid;
     sprintf(text, "B:%4.2f%c m/s", motor_speed_B_mps < 0 ? -motor_speed_B_mps : motor_speed_B_mps,
             MotorSpeed_DirChar(motor_speed_dir_B));
     OLED_ShowString(0, 4, (uint8_t *)text, 8);

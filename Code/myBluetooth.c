@@ -2,6 +2,7 @@
  *  myBluetooth.c - UART command parser for the reusable car frame
  * ================================================================
  *  Commands end with CR/LF:
+ *    C:t:r   synchronize task t and run state r to the follower
  *    G       start line following
  *    T:0     stop line following
  *    T:1     start line following
@@ -16,22 +17,21 @@
 
 #include "ti_msp_dl_config.h"
 #include "myPID.h"
-#include "PID.h"
 #include "encoder.h"
+#include "motor.h"
+#include "myTask.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 #include "myBluetooth.h"
 
-extern PID_t tracking_pid;
-
 #define BT_RX_BUF_SIZE  64
 char bt_rx_buffer[BT_RX_BUF_SIZE];
 uint16_t bt_rx_index = 0;
 volatile bool bt_cmd_ready_flag = false;
 
-void Bluetooth_SendString(char *str)
+void Bluetooth_SendString(const char *str)
 {
     while (*str)
     {
@@ -39,11 +39,31 @@ void Bluetooth_SendString(char *str)
     }
 }
 
+void Bluetooth_SendSyncState(uint8_t task, bool running)
+{
+    char frame[] = {'C', ':', '0', ':', '0', '\r', '\n', '\0'};
+
+    if (task >= (uint8_t)TASK_MAX) {
+        return;
+    }
+
+    frame[2] = (char)('0' + task);
+    frame[4] = running ? '1' : '0';
+    Bluetooth_SendString(frame);
+}
+
 void Bluetooth_ParseCommand(char *packet)
 {
     char cmd_type = packet[0];
     float val = 0.0f;
     char reply_buf[64];
+
+    if ((cmd_type == 'C') ||
+        (cmd_type == '+') ||
+        (strncmp(packet, "OK!", 3U) == 0) ||
+        (strncmp(packet, "Error:", 6U) == 0)) {
+        return;
+    }
 
     if ((cmd_type == 'G' || cmd_type == 'g') && packet[1] == '\0') {
         Tracking_PID_Reset();
@@ -63,22 +83,22 @@ void Bluetooth_ParseCommand(char *packet)
     {
         case 'P':
         case 'p':
-            tracking_pid.Kp = val;
-            sprintf(reply_buf, "OK! Kp set to %.2f\r\n", tracking_pid.Kp);
+            tracking_pid.Config.Kp = val;
+            sprintf(reply_buf, "OK! Kp set to %.2f\r\n", tracking_pid.Config.Kp);
             Bluetooth_SendString(reply_buf);
             break;
 
         case 'D':
         case 'd':
-            tracking_pid.Kd = val;
-            sprintf(reply_buf, "OK! Kd set to %.2f\r\n", tracking_pid.Kd);
+            tracking_pid.Config.Kd = val;
+            sprintf(reply_buf, "OK! Kd set to %.2f\r\n", tracking_pid.Config.Kd);
             Bluetooth_SendString(reply_buf);
             break;
 
         case 'B':
         case 'b':
-            tracking_pid.Deadband = val;
-            sprintf(reply_buf, "OK! Deadband set to %.2f\r\n", tracking_pid.Deadband);
+            tracking_pid.Config.Deadband = val;
+            sprintf(reply_buf, "OK! Deadband set to %.2f\r\n", tracking_pid.Config.Deadband);
             Bluetooth_SendString(reply_buf);
             break;
 
@@ -114,6 +134,7 @@ void Bluetooth_ParseCommand(char *packet)
         case 't':
             if ((int8_t)val == 0) {
                 g_line_follow_enabled = false;
+                Motor_Brake();
                 Bluetooth_SendString("OK! Line follow stopped!\r\n");
             } else {
                 Tracking_PID_Reset();
@@ -128,7 +149,7 @@ void Bluetooth_ParseCommand(char *packet)
     }
 }
 
-void UART_0_INST_IRQHandler(void)
+void UART_2_INST_IRQHandler(void)
 {
     switch (DL_UART_getPendingInterrupt(UART_2_INST))
     {
@@ -136,6 +157,10 @@ void UART_0_INST_IRQHandler(void)
             while (!DL_UART_isRXFIFOEmpty(UART_2_INST))
             {
                 char rx_data = (char)DL_UART_receiveData(UART_2_INST);
+
+                if (bt_cmd_ready_flag) {
+                    continue;
+                }
 
                 if (rx_data == '\n' || rx_data == '\r')
                 {
