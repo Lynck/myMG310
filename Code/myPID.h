@@ -13,8 +13,14 @@
 typedef enum {
     TRACKING_PID_LINE_FOUND = 0,
     TRACKING_PID_LINE_LOST,
+    TRACKING_PID_BRANCH_IGNORED,
     TRACKING_PID_ALL_BLACK
 } TrackingPID_Status_t;
+
+typedef enum {
+    TRACKING_PID_LANE_OUTER = 0,
+    TRACKING_PID_LANE_INNER
+} TrackingPID_Lane_t;
 
 typedef struct {
     float Kp;
@@ -28,6 +34,7 @@ typedef struct {
     float SlowFilterAlpha;
     float CurveSlowdownGain;
     int16_t MinCurveSpeed;
+    TrackingPID_Lane_t Lane;
 } TrackingPID_Config_t;
 
 typedef struct {

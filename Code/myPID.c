@@ -51,6 +51,7 @@ void TrackingPID_Init(TrackingPID_t *pid)
     pid->Config.SlowFilterAlpha = 0.25f;
     pid->Config.CurveSlowdownGain = 2.5f;
     pid->Config.MinCurveSpeed = 12;
+    pid->Config.Lane = TRACKING_PID_LANE_OUTER;
 
     TrackingPID_Reset(pid);
 }
@@ -74,11 +75,40 @@ TrackingPID_Status_t TrackingPID_Update(TrackingPID_t *pid,
     static const int8_t weights[8] = {-4, -3, -2, -1, 1, 2, 3, 4};
     int32_t weighted_sum = 0;
     int32_t sensor_sum = 0;
+    int32_t raw_sensor_sum = 0;
     uint8_t i;
 
     output->Position = pid->LastPosition;
     output->LeftSpeed = base_speed;
     output->RightSpeed = base_speed;
+
+    for (i = 0U; i < 8U; i++) {
+        if ((black_mask & (uint8_t)(1U << i)) != 0U) {
+            raw_sensor_sum++;
+        }
+    }
+
+    if (black_mask == 0xFFU) {
+        pid->Out = 0.0f;
+        pid->LastError = pid->Error;
+        pid->Error = 0.0f;
+        return TRACKING_PID_ALL_BLACK;
+    }
+
+    if (raw_sensor_sum >= 2) {
+        if (pid->Config.Lane == TRACKING_PID_LANE_OUTER) {
+            /* Outer lane: ignore left sensors 1..3 (bits 7..5). */
+            black_mask &= 0x1FU;
+        } else {
+            /* Inner lane: ignore right sensors 6..8 (bits 2..0). */
+            black_mask &= 0xF8U;
+        }
+
+        if (black_mask == 0U) {
+            pid->Out = 0.0f;
+            return TRACKING_PID_BRANCH_IGNORED;
+        }
+    }
 
     for (i = 0U; i < 8U; i++) {
         if ((black_mask & (uint8_t)(1U << i)) != 0U) {
@@ -95,13 +125,6 @@ TrackingPID_Status_t TrackingPID_Update(TrackingPID_t *pid,
         pid, (float)weighted_sum / (float)sensor_sum);
     pid->LastPosition = pid->Position;
     output->Position = pid->Position;
-
-    if (black_mask == 0xFFU) {
-        pid->Out = 0.0f;
-        pid->LastError = pid->Error;
-        pid->Error = 0.0f;
-        return TRACKING_PID_ALL_BLACK;
-    }
 
     pid->LastError = pid->Error;
     pid->Error = -TrackingPID_ApplyDeadband(

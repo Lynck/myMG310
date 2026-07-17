@@ -1,7 +1,6 @@
 #include "ti_msp_dl_config.h"
 #include "interrupt.h"
 #include "clock.h"
-#include "vl53l0x.h"
 #include "Code/motor_speed.h"
 
 uint8_t enable_group1_irq = 0;

@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "myPID.h"
+#include "distance_pid.h"
 
 typedef enum Type_e {
     TASK_ID_1 = 0,
@@ -23,10 +24,15 @@ extern volatile int16_t g_base_speed;
 extern volatile float g_left_wheel_scale;
 extern volatile float g_right_wheel_scale;
 extern volatile bool g_line_follow_enabled;
+extern volatile bool g_leader_stop_requested;
+extern volatile int16_t g_distance_control_speed;
+extern DistancePID_t distance_pid;
 
 void Tracking_PID_Init(void);
 void Tracking_PID2_Init(void);
 void Tracking_PID_Reset(void);
+void Tracking_SetLane(TrackingPID_Lane_t lane);
+void Tracking_SetLeaderStopRequested(bool requested);
 void Tracking_Process(void);
 void ExecuteTask(Task_t current_task);
 

@@ -61,13 +61,12 @@ void Bluetooth_ParseCommand(char *packet)
             bt_sync_received = true;
             current_task = (Task_t)(packet[2] - '0');
             bool run_enabled = (packet[4] == '1');
-            bool was_running = g_line_follow_enabled;
 
-            Bluetooth_SetLineFollowEnabled(run_enabled);
-            if (was_running && !run_enabled) {
-                DL_GPIO_setPins(BUZZER_PORT, BUZZER_PIN_9_PIN);
-                mspm0_delay_ms(100U);
-                DL_GPIO_clearPins(BUZZER_PORT, BUZZER_PIN_9_PIN);
+            if (run_enabled) {
+                Tracking_SetLeaderStopRequested(false);
+                Bluetooth_SetLineFollowEnabled(true);
+            } else {
+                Tracking_SetLeaderStopRequested(true);
             }
         }
         return;
@@ -126,6 +125,7 @@ void Bluetooth_CheckSyncTimeout(void)
     if (bt_sync_received &&
         g_line_follow_enabled &&
         ((tick_ms - bt_last_sync_ms) > BT_SYNC_TIMEOUT_MS)) {
+        Tracking_SetLeaderStopRequested(false);
         Bluetooth_SetLineFollowEnabled(false);
     }
 }
@@ -133,6 +133,7 @@ void Bluetooth_CheckSyncTimeout(void)
 void Bluetooth_EnterLocalDebugMode(void)
 {
     bt_sync_received = false;
+    Tracking_SetLeaderStopRequested(false);
 }
 
 void UART_0_INST_IRQHandler(void)

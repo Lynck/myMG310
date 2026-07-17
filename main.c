@@ -11,7 +11,7 @@
 #include "oled_software_i2c.h"
 #include "myTask.h"
 #include "grayscale_uart.h"
-#include "vl53l0x.h"
+#include "leader_distance.h"
 
 bool OLED_Flag;
 volatile uint16_t ADC_Val;
@@ -35,6 +35,7 @@ static bool up_pressed = false;
 static void LineFollow_Start(void)
 {
     Tracking_PID_Reset();
+    Tracking_SetLeaderStopRequested(false);
     check_100ms_flag = false;
     start_100ms_timer = false;
     g_line_follow_enabled = true;
@@ -92,7 +93,7 @@ int main(void)
     Motor_Brake();
     Tracking_PID_Init();
     Grayscale_UART_Init();
-    (void)VL53L0X_Init();
+    LeaderDistance_Init();
 
     NVIC_EnableIRQ(TIMER_100MS_INST_INT_IRQN);
     NVIC_EnableIRQ(TIMER_10MS_INST_INT_IRQN);
@@ -112,7 +113,7 @@ int main(void)
             timer_10ms_flag = false;
 
             MotorSpeed_Update(0.01f);
-            (void)VL53L0X_Process();
+            (void)LeaderDistance_Process();
 
             if (!startup_done) {
                 startup_tick++;
