@@ -8,8 +8,8 @@ This directory contains the ST VL53L0X API plus a small MSPM0 wrapper. Applicati
 | --- | --- |
 | VIN | 3.3 V |
 | GND | GND |
-| SCL | PA11 (`I2C0 SCL`) |
-| SDA | PA10 (`I2C0 SDA`) |
+| SCL | PA1 (`I2C0 SCL`) |
+| SDA | PA0 (`I2C0 SDA`) |
 | GPIO1 | Not connected |
 | XSHUT | Not connected |
 
@@ -24,8 +24,11 @@ Add a controller-mode I2C instance with:
 - name: `I2C_VL53L0X`
 - peripheral: `I2C0`
 - speed: 400 kHz
-- SDA: PA10
-- SCL: PA11
+- SDA: PA0
+- SCL: PA1
+
+The OLED (address `0x3C`) shares this hardware I2C bus with the VL53L0X
+(address `0x29`). Do not enable the old software-I2C OLED GPIO instance.
 
 ## Application API
 

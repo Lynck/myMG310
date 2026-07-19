@@ -8,7 +8,7 @@
 #include "motor.h"
 #include "myBluetooth.h"
 #include "motor_speed.h"
-#include "oled_software_i2c.h"
+#include "oled_hardware_i2c.h"
 #include "myTask.h"
 #include "grayscale_uart.h"
 #include "leader_distance.h"

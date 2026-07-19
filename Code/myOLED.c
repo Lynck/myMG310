@@ -4,7 +4,7 @@
 
 #include "ti_msp_dl_config.h"
 #include <stdio.h>
-#include "oled_software_i2c.h"
+#include "oled_hardware_i2c.h"
 #include "grayscale_uart.h"
 #include "motor_speed.h"
 #include "myPID.h"
@@ -51,9 +51,9 @@ void MainInterface_Show(void)
     OLED_ShowString(0, 5, (uint8_t *)text, 8);
 
     if (LeaderDistance_Get(&distance_cm)) {
-        sprintf(text, "DIST:%5.1fcm", distance_cm);
+        sprintf(text, "TOF:%6.1fcm", distance_cm);
     } else {
-        sprintf(text, "DIST:----cm");
+        sprintf(text, "TOF:----.-cm");
     }
     OLED_ShowString(0, 6, (uint8_t *)text, 8);
 }

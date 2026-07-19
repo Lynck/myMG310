@@ -22,31 +22,31 @@ void delay_ms(uint32_t ms)
 
 static int mspm0_i2c_disable(void)
 {
-    DL_I2C_reset(I2C_OLED_INST);
-    DL_GPIO_initDigitalOutput(GPIO_I2C_OLED_IOMUX_SCL);
-    DL_GPIO_initDigitalInputFeatures(GPIO_I2C_OLED_IOMUX_SDA,
+    DL_I2C_reset(I2C_VL53L0X_INST);
+    DL_GPIO_initDigitalOutput(GPIO_I2C_VL53L0X_IOMUX_SCL);
+    DL_GPIO_initDigitalInputFeatures(GPIO_I2C_VL53L0X_IOMUX_SDA,
 		 DL_GPIO_INVERSION_DISABLE, DL_GPIO_RESISTOR_NONE,
 		 DL_GPIO_HYSTERESIS_DISABLE, DL_GPIO_WAKEUP_DISABLE);
-    DL_GPIO_clearPins(GPIO_I2C_OLED_SCL_PORT, GPIO_I2C_OLED_SCL_PIN);
-    DL_GPIO_enableOutput(GPIO_I2C_OLED_SCL_PORT, GPIO_I2C_OLED_SCL_PIN);
+    DL_GPIO_clearPins(GPIO_I2C_VL53L0X_SCL_PORT, GPIO_I2C_VL53L0X_SCL_PIN);
+    DL_GPIO_enableOutput(GPIO_I2C_VL53L0X_SCL_PORT, GPIO_I2C_VL53L0X_SCL_PIN);
     return 0;
 }
 
 static int mspm0_i2c_enable(void)
 {
-    DL_I2C_reset(I2C_OLED_INST);
-    DL_GPIO_initPeripheralInputFunctionFeatures(GPIO_I2C_OLED_IOMUX_SDA,
-        GPIO_I2C_OLED_IOMUX_SDA_FUNC, DL_GPIO_INVERSION_DISABLE,
+    DL_I2C_reset(I2C_VL53L0X_INST);
+    DL_GPIO_initPeripheralInputFunctionFeatures(GPIO_I2C_VL53L0X_IOMUX_SDA,
+        GPIO_I2C_VL53L0X_IOMUX_SDA_FUNC, DL_GPIO_INVERSION_DISABLE,
         DL_GPIO_RESISTOR_NONE, DL_GPIO_HYSTERESIS_DISABLE,
         DL_GPIO_WAKEUP_DISABLE);
-    DL_GPIO_initPeripheralInputFunctionFeatures(GPIO_I2C_OLED_IOMUX_SCL,
-        GPIO_I2C_OLED_IOMUX_SCL_FUNC, DL_GPIO_INVERSION_DISABLE,
+    DL_GPIO_initPeripheralInputFunctionFeatures(GPIO_I2C_VL53L0X_IOMUX_SCL,
+        GPIO_I2C_VL53L0X_IOMUX_SCL_FUNC, DL_GPIO_INVERSION_DISABLE,
         DL_GPIO_RESISTOR_NONE, DL_GPIO_HYSTERESIS_DISABLE,
         DL_GPIO_WAKEUP_DISABLE);
-    DL_GPIO_enableHiZ(GPIO_I2C_OLED_IOMUX_SDA);
-    DL_GPIO_enableHiZ(GPIO_I2C_OLED_IOMUX_SCL);
-    DL_I2C_enablePower(I2C_OLED_INST);
-    SYSCFG_DL_I2C_OLED_init();
+    DL_GPIO_enableHiZ(GPIO_I2C_VL53L0X_IOMUX_SDA);
+    DL_GPIO_enableHiZ(GPIO_I2C_VL53L0X_IOMUX_SCL);
+    DL_I2C_enablePower(I2C_VL53L0X_INST);
+    SYSCFG_DL_I2C_VL53L0X_init();
     return 0;
 }
 
@@ -56,12 +56,12 @@ void oled_i2c_sda_unlock(void)
     mspm0_i2c_disable();
     do
     {
-        DL_GPIO_clearPins(GPIO_I2C_OLED_SCL_PORT, GPIO_I2C_OLED_SCL_PIN);
+        DL_GPIO_clearPins(GPIO_I2C_VL53L0X_SCL_PORT, GPIO_I2C_VL53L0X_SCL_PIN);
         mspm0_delay_ms(1);
-        DL_GPIO_setPins(GPIO_I2C_OLED_SCL_PORT, GPIO_I2C_OLED_SCL_PIN);
+        DL_GPIO_setPins(GPIO_I2C_VL53L0X_SCL_PORT, GPIO_I2C_VL53L0X_SCL_PIN);
         mspm0_delay_ms(1);
 
-        if(DL_GPIO_readPins(GPIO_I2C_OLED_SDA_PORT, GPIO_I2C_OLED_SDA_PIN))
+        if(DL_GPIO_readPins(GPIO_I2C_VL53L0X_SDA_PORT, GPIO_I2C_VL53L0X_SDA_PIN))
             break;
     }while(++cycleCnt < 100);
     mspm0_i2c_enable();
@@ -116,12 +116,12 @@ void OLED_WR_Byte(uint8_t dat,uint8_t mode)
 
     mspm0_get_clock_ms(&start);
 
-    DL_I2C_fillControllerTXFIFO(I2C_OLED_INST, ptr, 2);
-    DL_I2C_clearInterruptStatus(I2C_OLED_INST, DL_I2C_INTERRUPT_CONTROLLER_TX_DONE);
-    while (!(DL_I2C_getControllerStatus(I2C_OLED_INST) & DL_I2C_CONTROLLER_STATUS_IDLE));
-    DL_I2C_startControllerTransfer(I2C_OLED_INST, 0x3C, DL_I2C_CONTROLLER_DIRECTION_TX, 2);
+    DL_I2C_fillControllerTXFIFO(I2C_VL53L0X_INST, ptr, 2);
+    DL_I2C_clearInterruptStatus(I2C_VL53L0X_INST, DL_I2C_INTERRUPT_CONTROLLER_TX_DONE);
+    while (!(DL_I2C_getControllerStatus(I2C_VL53L0X_INST) & DL_I2C_CONTROLLER_STATUS_IDLE));
+    DL_I2C_startControllerTransfer(I2C_VL53L0X_INST, 0x3C, DL_I2C_CONTROLLER_DIRECTION_TX, 2);
 
-    while (!DL_I2C_getRawInterruptStatus(I2C_OLED_INST, DL_I2C_INTERRUPT_CONTROLLER_TX_DONE))
+    while (!DL_I2C_getRawInterruptStatus(I2C_VL53L0X_INST, DL_I2C_INTERRUPT_CONTROLLER_TX_DONE))
     {
         mspm0_get_clock_ms(&cur);
         if(cur >= (start + I2C_TIMEOUT_MS))
@@ -271,7 +271,7 @@ void OLED_DrawBMP(uint8_t x,uint8_t y,uint8_t sizex, uint8_t sizey,uint8_t BMP[]
 //初始化SSD1306					    
 void OLED_Init(void)
 {
-    if(DL_I2C_getSDAStatus(I2C_OLED_INST) == DL_I2C_CONTROLLER_SDA_LOW)
+    if(DL_I2C_getSDAStatus(I2C_VL53L0X_INST) == DL_I2C_CONTROLLER_SDA_LOW)
         oled_i2c_sda_unlock();
 
     delay_ms(200);

@@ -2,10 +2,10 @@
  * SysConfig Configuration Steps:
  *   I2C:
  *     1. Add an I2C module.
- *     2. Name it as "I2C_OLED".
+ *     2. Name it as "I2C_VL53L0X" so the OLED and VL53L0X can share one bus.
  *     3. Check the box "Enable Controller Mode".
  *     4. Set "Standard Bus Speed" to "Fast Mode (400kHz)". (optional)
- *     5. Set the pins according to your needs.
+ *     5. This project uses PA0 for SDA and PA1 for SCL.
  */
  
 #ifndef __OLED_HARDWARE_I2C_H

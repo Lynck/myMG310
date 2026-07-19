@@ -14,13 +14,14 @@
 #define FOLLOW_ADJUST_MAX_SPEED      18
 #define FOLLOW_ADJUST_SPEED_GAIN     0.7f
 #define FOLLOW_SETTLE_TIME_MS        250UL
+#define TASK2_NO_DISTANCE_SPEED      37
 
 Task_t current_task = TASK_ID_1;
 uint8_t able_stop;
 uint8_t is_speed_50;
 
 TrackingPID_t tracking_pid;
-volatile int16_t g_base_speed = 27;
+volatile int16_t g_base_speed = 22;
 volatile float g_left_wheel_scale = 1.00f;
 volatile float g_right_wheel_scale = 1.00f;
 volatile bool g_line_follow_enabled = false;
@@ -83,8 +84,10 @@ void Tracking_PID2_Init(void)
 {
     TrackingPID_Init(&tracking_pid);
     DistancePID_Init(&distance_pid);
-    tracking_pid.Config.Kp = 12.0f;
-    tracking_pid.Config.Kd = 30.0f;
+    /* 任务二基础速度为45，距离环必须能够把速度最低修正到0。 */
+    distance_pid.Config.OutMin = -(float)TASK2_NO_DISTANCE_SPEED;
+    tracking_pid.Config.Kp = 13.0f;
+    tracking_pid.Config.Kd = 35.0f;
     g_distance_control_speed = g_base_speed;
 }
 
@@ -121,11 +124,16 @@ void Tracking_Process(void)
     int16_t controlled_base_speed;
 
     if (is_speed_50) {
-        g_base_speed = 37;
+        /* 红外距离暂时无效时，任务二使用该速度继续循迹等待测距恢复。 */
+        g_base_speed = TASK2_NO_DISTANCE_SPEED;
     }
 
     distance_valid = LeaderDistance_Get(&distance_cm);
-    if (g_leader_stop_requested) {
+    if (g_leader_stop_requested && (!is_speed_50 || distance_valid)) {
+        /*
+         * 任务二只有红外距离有效时才进入最终停车调整；没有距离时继续循迹。
+         * 任务一仍保持原来的失去距离立即刹车行为。
+         */
         DistancePID_Reset(&distance_pid);
         g_distance_control_speed = 0;
 
@@ -231,6 +239,7 @@ void ExecuteTask(Task_t task)
         case TASK_ID_1:
             able_stop = 1;
             is_speed_50 = 0;
+            g_base_speed = 27;
             Tracking_Process();
             break;
 
