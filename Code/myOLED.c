@@ -16,7 +16,7 @@ void MainInterface_Show(void)
     float yaw = euler.angle.yaw;
     char text[64];
 
-    Read_data_1_GPIO();
+    Grayscale_Sensor_Read();
 
     sprintf(text, "LINE:%s", g_line_follow_enabled ? "RUN " : "STOP");
     OLED_ShowString(0, 0, (uint8_t *)text, 8);
@@ -29,8 +29,10 @@ void MainInterface_Show(void)
     OLED_ShowString(0, 2, (uint8_t *)text, 8);
 
     sprintf(text, "L:%d%d%d%d%d%d%d%d:R",
-            data_1.D8, data_1.D7, data_1.D6, data_1.D5,
-            data_1.D4, data_1.D3, data_1.D2, data_1.D1);
+            g_grayscale_digital[0], g_grayscale_digital[1],
+            g_grayscale_digital[2], g_grayscale_digital[3],
+            g_grayscale_digital[4], g_grayscale_digital[5],
+            g_grayscale_digital[6], g_grayscale_digital[7]);
     OLED_ShowString(0, 3, (uint8_t *)text, 8);
 
     sprintf(text, "B:%4.2f%c m/s", motor_speed_B_mps < 0 ? -motor_speed_B_mps : motor_speed_B_mps,

@@ -1,6 +1,8 @@
 eclipse.preferences.version=1
 encoding//Debug/Code/subdir_rules.mk=UTF-8
 encoding//Debug/Code/subdir_vars.mk=UTF-8
+encoding//Debug/Drivers/GW_Grayscale/subdir_rules.mk=UTF-8
+encoding//Debug/Drivers/GW_Grayscale/subdir_vars.mk=UTF-8
 encoding//Debug/Drivers/IMU660RB/Fusion/subdir_rules.mk=UTF-8
 encoding//Debug/Drivers/IMU660RB/Fusion/subdir_vars.mk=UTF-8
 encoding//Debug/Drivers/IMU660RB/subdir_rules.mk=UTF-8

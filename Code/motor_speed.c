@@ -12,7 +12,8 @@ volatile float motor_speed_B_mps = 0.0f;
 volatile int8_t motor_speed_dir_A = MOTOR_SPEED_DIR_STOP;
 volatile int8_t motor_speed_dir_B = MOTOR_SPEED_DIR_STOP;
 
-static PID_t motor_speed_pid;
+static PID_t motor_speed_pid_A;
+static PID_t motor_speed_pid_B;
 static int32_t motor_last_count_A = 0;
 static int32_t motor_last_count_B = 0;
 
@@ -25,11 +26,6 @@ static int16_t MotorSpeed_ClampCmd(int16_t cmd)
         return -100;
     }
     return cmd;
-}
-
-static int16_t MotorSpeed_AbsCmd(int16_t cmd)
-{
-    return (cmd < 0) ? (int16_t)-cmd : cmd;
 }
 
 static float MotorSpeed_AbsMps(float speed_mps)
@@ -59,6 +55,27 @@ static float MotorSpeed_FeedforwardCmd(float target_mps)
     return MotorSpeed_ClampFloat(cmd, 0.0f, MOTOR_SPEED_BASE_CMD_MAX);
 }
 
+static void MotorSpeed_ConfigPID(PID_t *pid)
+{
+    PID_Init(pid);
+    pid->Kp = MOTOR_SPEED_PID_KP;
+    pid->Ki = MOTOR_SPEED_PID_KI;
+    pid->Kd = MOTOR_SPEED_PID_KD;
+    pid->OutMax = MOTOR_SPEED_PID_OUT_MAX;
+    pid->OutMin = MOTOR_SPEED_PID_OUT_MIN;
+    pid->IntMax = MOTOR_SPEED_PID_INT_MAX;
+    pid->IntMin = MOTOR_SPEED_PID_INT_MIN;
+}
+
+static void MotorSpeed_ResetPID(PID_t *pid)
+{
+    pid->Out = 0.0f;
+    pid->Error0 = 0.0f;
+    pid->Error1 = 0.0f;
+    pid->Error2 = 0.0f;
+    pid->ErrorInt = 0.0f;
+}
+
 static int8_t MotorSpeed_ReadDirA(void)
 {
     int8_t dir = (DL_GPIO_readPins(ENC_A_DIR_PORT, ENC_A_DIR_PIN_18_PIN) != 0) ?
@@ -77,14 +94,8 @@ static int8_t MotorSpeed_ReadDirB(void)
 
 void MotorSpeed_Init(void)
 {
-    PID_Init(&motor_speed_pid);
-    motor_speed_pid.Kp = MOTOR_SPEED_PID_KP;
-    motor_speed_pid.Ki = MOTOR_SPEED_PID_KI;
-    motor_speed_pid.Kd = MOTOR_SPEED_PID_KD;
-    motor_speed_pid.OutMax = MOTOR_SPEED_PID_OUT_MAX;
-    motor_speed_pid.OutMin = MOTOR_SPEED_PID_OUT_MIN;
-    motor_speed_pid.IntMax = MOTOR_SPEED_PID_INT_MAX;
-    motor_speed_pid.IntMin = MOTOR_SPEED_PID_INT_MIN;
+    MotorSpeed_ConfigPID(&motor_speed_pid_A);
+    MotorSpeed_ConfigPID(&motor_speed_pid_B);
 
     motor_speed_count_A = 0;
     motor_speed_count_B = 0;
@@ -147,41 +158,40 @@ void MotorSpeed_Update(float dt_s)
 
 void MotorSpeed_ResetControl(void)
 {
-    motor_speed_pid.Out = 0.0f;
-    motor_speed_pid.Error0 = 0.0f;
-    motor_speed_pid.Error1 = 0.0f;
-    motor_speed_pid.Error2 = 0.0f;
-    motor_speed_pid.ErrorInt = 0.0f;
+    MotorSpeed_ResetPID(&motor_speed_pid_A);
+    MotorSpeed_ResetPID(&motor_speed_pid_B);
 }
 
-void MotorSpeed_Control(float target_mps, int16_t turn_cmd, float left_scale, float right_scale)
+void MotorSpeed_ControlWheels(float target_A_mps, float target_B_mps,
+                              float scale_A, float scale_B)
 {
-    if (target_mps <= 0.0f) {
+    float cmd_A;
+    float cmd_B;
+
+    if ((target_A_mps <= 0.0f) && (target_B_mps <= 0.0f)) {
         Motor_Brake();
         MotorSpeed_ResetControl();
         return;
     }
 
-    motor_speed_pid.Target = target_mps;
-    motor_speed_pid.Actual = (MotorSpeed_AbsMps(motor_speed_A_mps) +
-                              MotorSpeed_AbsMps(motor_speed_B_mps)) * 0.5f;
-    PID_Update(&motor_speed_pid);
+    target_A_mps = MotorSpeed_ClampFloat(target_A_mps, 0.0f, 1.0f);
+    target_B_mps = MotorSpeed_ClampFloat(target_B_mps, 0.0f, 1.0f);
 
-    float base_cmd_f = MotorSpeed_FeedforwardCmd(target_mps) + motor_speed_pid.Out;
-    int16_t base_cmd = (int16_t)MotorSpeed_ClampFloat(base_cmd_f, 0.0f, MOTOR_SPEED_BASE_CMD_MAX);
-    int16_t turn_limit = (int16_t)(100 - MotorSpeed_AbsCmd(base_cmd));
+    motor_speed_pid_A.Target = target_A_mps;
+    motor_speed_pid_A.Actual = MotorSpeed_AbsMps(motor_speed_A_mps);
+    PID_Update(&motor_speed_pid_A);
 
-    if (turn_cmd > turn_limit) {
-        turn_cmd = turn_limit;
-    } else if (turn_cmd < -turn_limit) {
-        turn_cmd = (int16_t)-turn_limit;
-    }
+    motor_speed_pid_B.Target = target_B_mps;
+    motor_speed_pid_B.Actual = MotorSpeed_AbsMps(motor_speed_B_mps);
+    PID_Update(&motor_speed_pid_B);
 
-    int16_t left_cmd = (int16_t)((base_cmd + turn_cmd) * left_scale);
-    int16_t right_cmd = (int16_t)((base_cmd - turn_cmd) * right_scale);
+    cmd_A = MotorSpeed_FeedforwardCmd(target_A_mps) + motor_speed_pid_A.Out;
+    cmd_B = MotorSpeed_FeedforwardCmd(target_B_mps) + motor_speed_pid_B.Out;
+    cmd_A = MotorSpeed_ClampFloat(cmd_A, 0.0f, MOTOR_SPEED_BASE_CMD_MAX);
+    cmd_B = MotorSpeed_ClampFloat(cmd_B, 0.0f, MOTOR_SPEED_BASE_CMD_MAX);
 
-    Motor_SetSpeed_A(MotorSpeed_ClampCmd(left_cmd));
-    Motor_SetSpeed_B(MotorSpeed_ClampCmd(right_cmd));
+    Motor_SetSpeed_A(MotorSpeed_ClampCmd((int16_t)(cmd_A * scale_A)));
+    Motor_SetSpeed_B(MotorSpeed_ClampCmd((int16_t)(cmd_B * scale_B)));
 }
 
 char MotorSpeed_DirChar(int8_t dir)

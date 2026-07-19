@@ -26,6 +26,8 @@ extern volatile bool g_line_follow_enabled;
 void Tracking_PID_Init(void);
 void Tracking_PID2_Init(void);
 void Tracking_PID_Reset(void);
+/* 选择内圈或外圈；实际岔路过滤在 TrackingPID_Update() 中执行。 */
+void Tracking_SetLane(TrackingPID_Lane_t lane);
 void Tracking_Process(void);
 void ExecuteTask(Task_t current_task);
 
