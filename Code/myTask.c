@@ -1,6 +1,6 @@
 #include "myTask.h"
 
-#include "Grayscale_Sensor.h"
+#include "grayscale_uart.h"
 #include "leader_distance.h"
 #include "distance_pid.h"
 #include "clock.h"
@@ -15,9 +15,6 @@
 #define FOLLOW_ADJUST_SPEED_GAIN     0.7f
 #define FOLLOW_SETTLE_TIME_MS        250UL
 #define TASK2_NO_DISTANCE_SPEED      37
-
-/* 任务一弯道丢线时单独降速；任务二继续使用距离环给出的速度。 */
-#define TASK1_LINE_LOST_SPEED        16
 
 Task_t current_task = TASK_ID_1;
 uint8_t able_stop;
@@ -76,15 +73,6 @@ static int16_t Tracking_GetStopAdjustSpeed(float distance_cm)
     return speed;
 }
 
-static int16_t Tracking_GetLineLostSpeed(int16_t controlled_base_speed)
-{
-    if ((current_task == TASK_ID_1) &&
-        (controlled_base_speed > TASK1_LINE_LOST_SPEED)) {
-        return TASK1_LINE_LOST_SPEED;
-    }
-    return controlled_base_speed;
-}
-
 void Tracking_PID_Init(void)
 {
     TrackingPID_Init(&tracking_pid);
@@ -98,8 +86,8 @@ void Tracking_PID2_Init(void)
     DistancePID_Init(&distance_pid);
     /* 任务二基础速度为45，距离环必须能够把速度最低修正到0。 */
     distance_pid.Config.OutMin = -(float)TASK2_NO_DISTANCE_SPEED;
-    tracking_pid.Config.Kp = 9.0f;
-    tracking_pid.Config.Kd = 0.0f;
+    tracking_pid.Config.Kp = 13.0f;
+    tracking_pid.Config.Kd = 35.0f;
     g_distance_control_speed = g_base_speed;
 }
 
@@ -134,7 +122,6 @@ void Tracking_Process(void)
     float distance_cm;
     bool distance_valid;
     int16_t controlled_base_speed;
-    int16_t line_lost_speed;
 
     if (is_speed_50) {
         /* 红外距离暂时无效时，任务二使用该速度继续循迹等待测距恢复。 */
@@ -166,9 +153,9 @@ void Tracking_Process(void)
             if (Tracking_DistanceInSuccessRange(distance_cm)) {
                 g_leader_stop_requested = false;
                 g_line_follow_enabled = false;
-                DL_GPIO_setPins(BUZZER_PORT, BUZZER_PIN_7_PIN);
+                DL_GPIO_setPins(BUZZER_PORT, BUZZER_PIN_9_PIN);
                 mspm0_delay_ms(100U);
-                DL_GPIO_clearPins(BUZZER_PORT, BUZZER_PIN_7_PIN);
+                DL_GPIO_clearPins(BUZZER_PORT, BUZZER_PIN_9_PIN);
                 return;
             }
         }
@@ -198,21 +185,22 @@ void Tracking_Process(void)
     }
     g_distance_control_speed = controlled_base_speed;
 
-    black_mask = Grayscale_Sensor_Read();
+    if (!Grayscale_UART_GetBlackMask(&black_mask)) {
+        return;
+    }
 
     status = TrackingPID_Update(
         &tracking_pid, black_mask, controlled_base_speed, &output);
 
     if (status == TRACKING_PID_LINE_LOST) {
-        line_lost_speed = Tracking_GetLineLostSpeed(controlled_base_speed);
         if (output.Position > TRACKING_LOST_CENTER_BAND) {
             Tracking_SetMotorSpeeds(
-                -line_lost_speed, line_lost_speed);
+                -controlled_base_speed, controlled_base_speed);
         } else if (output.Position < -TRACKING_LOST_CENTER_BAND) {
             /* Keep the existing right-side lost-line behaviour unchanged. */
         } else {
             Tracking_SetMotorSpeeds(
-                line_lost_speed, line_lost_speed);
+                controlled_base_speed, controlled_base_speed);
         }
         return;
     }
@@ -226,8 +214,6 @@ static void Task_Enter(Task_t task)
         case TASK_ID_1:
             Tracking_PID_Init();
             Tracking_SetLane(TRACKING_PID_LANE_OUTER);
-            // Motor_SetSpeed_A(20);
-            // Motor_SetSpeed_B(20);
             is_speed_50 = 0;
             break;
 

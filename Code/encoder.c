@@ -6,8 +6,8 @@
 #include "motor_speed.c"
 
 /* 全局编码器脉冲计数器, 在 GROUP1 中断中累加 */
-volatile int32_t enc_count_A = 0;   /* A 通道电机: PA26 上升沿触发，PA27 判向 */
-volatile int32_t enc_count_B = 0;   /* B 通道电机: PA25 上升沿触发，PA14 判向 */
+volatile int32_t enc_count_A = 0;   /* 左轮: PA8 上升沿触发 */
+volatile int32_t enc_count_B = 0;   /* 右轮: PA16 上升沿触发 */
 
 /* 滤波后的编码器增量 (每 10ms 更新), 参考 pid_speed 的低通滤波 */
 volatile float enc_speed_A = 0.0f;

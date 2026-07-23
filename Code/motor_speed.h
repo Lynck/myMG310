@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #define MOTOR_SPEED_PULSES_PER_REV      13
-#define MOTOR_SPEED_GEAR_RATIO          20
+#define MOTOR_SPEED_GEAR_RATIO          30
 #define MOTOR_SPEED_PULSES_PER_WHEEL    (MOTOR_SPEED_PULSES_PER_REV * MOTOR_SPEED_GEAR_RATIO)
 
 /* ponytail: calibration knobs; measure the wheel and flip polarity here if the real car disagrees. */

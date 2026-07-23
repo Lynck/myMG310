@@ -116,7 +116,7 @@
                         </toolChain>
                     </folderInfo>
                     <sourceEntries>
-                        <entry excluding="tests|Drivers/IMU660RB|Drivers/OLED_Hardware_SPI|Drivers/LSM6DSV16X|Drivers/MPU6050|Drivers/OLED_Software_I2C|Drivers/BNO08X_UART_RVC|Drivers/WIT|Drivers/Ultrasonic_GPIO|Drivers/Ultrasonic_Capture|Drivers/OLED_Software_SPI" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+                        <entry excluding="Debug - 副本|Drivers/IMU660RB|Drivers/OLED_Hardware_SPI|Drivers/LSM6DSV16X|Drivers/MPU6050|Drivers/OLED_Software_I2C|Drivers/BNO08X_UART_RVC|Drivers/WIT|Drivers/Ultrasonic_GPIO|Drivers/Ultrasonic_Capture|Drivers/OLED_Software_SPI" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
                     </sourceEntries>
                 </configuration>
             </storageModule>
