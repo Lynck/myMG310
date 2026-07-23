@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CH9141K 双车通信速查</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22><circle cx=%228%22 cy=%228%22 r=%227%22 fill=%22%231559a5%22/></svg>">
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+<main>
+  <p class="eyebrow">一页式速查</p>
+  <h1>CH9141K 主从配置</h1>
+
+  <h2>角色与自动连接</h2>
+  <table>
+    <thead><tr><th>对象</th><th>角色命令</th><th>后续动作</th></tr></thead>
+    <tbody>
+      <tr><td>跟随车</td><td><code>AT+BLEMODE=2</code></td><td><code>AT+MAC?</code> 记录地址，再 <code>AT+RESET</code></td></tr>
+      <tr><td>领头车</td><td><code>AT+BLEMODE=1</code></td><td><code>AT+RESET</code> 后重新进 AT；执行 <code>AT+CONADD=&lt;从机MAC&gt;,000000</code>，最后 <code>AT+EXIT</code></td></tr>
+    </tbody>
+  </table>
+
+  <h2>当前工程 UART 接线</h2>
+  <table>
+    <thead><tr><th>外设功能</th><th>芯片/模块型号</th><th>天猛星引脚</th><th>IOMUX 索引</th><th>片上复用功能</th><th>备注</th></tr></thead>
+    <tbody>
+      <tr><td>领头车蓝牙 RX（MCU 接收）</td><td>CH9141K TXD</td><td>PB16</td><td>PINCM33</td><td>UART2_RX</td><td>CH9141K TXD → PB16</td></tr>
+      <tr><td>领头车蓝牙 TX（MCU 发送）</td><td>CH9141K RXD</td><td>PA21</td><td>PINCM46</td><td>UART2_TX</td><td>PA21 → CH9141K RXD</td></tr>
+      <tr><td>跟随车蓝牙 RX（MCU 接收）</td><td>CH9141K TXD</td><td>PA22</td><td>PINCM47</td><td>UART2_RX</td><td>CH9141K TXD → PA22</td></tr>
+      <tr><td>跟随车蓝牙 TX（MCU 发送）</td><td>CH9141K RXD</td><td>PA21</td><td>PINCM46</td><td>UART2_TX</td><td>PA21 → CH9141K RXD</td></tr>
+      <tr><td>模块供电</td><td>CH9141K 模块</td><td>3.3 V / GND</td><td>-</td><td>电源</td><td>模块板支持 3.3-5 V；与 MCU 共地</td></tr>
+    </tbody>
+  </table>
+  <div class="note">PA21 是天猛星资料标出的特殊复用引脚。当前两个工程已明确生成成 UART2_TX，因此本课保持现状；如果实物接线不是 PA21，先不要改代码，拍清楚接线后再核对 SysConfig。</div>
+
+  <h2>USB-TTL 配置接线</h2>
+  <pre>面包板公共 GND 轨
+USB-TTL GND ──┬── CH9141K GND
+               └── CH9141K AT     （仅硬件 AT 模式时）</pre>
+  <table>
+    <thead><tr><th>CH9141K</th><th>USB-TTL</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>VCC</td><td>3.3 V</td><td>优先使用 3.3 V 供电和逻辑</td></tr>
+      <tr><td>GND</td><td>GND</td><td>必须共地</td></tr>
+      <tr><td>TXD</td><td>RXD</td><td>交叉连接</td></tr>
+      <tr><td>RXD</td><td>TXD</td><td>交叉连接</td></tr>
+      <tr><td>AT</td><td>配置时接公共 GND</td><td><code>AT...</code> 无法进入时，断电后拉低再上电；配置完成后断电并改接 3.3 V 高电平，禁止接 5 V</td></tr>
+      <tr><td>SLEEP</td><td>不接</td><td>本次配置不使用</td></tr>
+    </tbody>
+  </table>
+
+  <h2>诊断命令</h2>
+  <table>
+    <thead><tr><th>命令</th><th>用途</th></tr></thead>
+    <tbody>
+      <tr><td><code>AT...</code></td><td>进入 AT 模式；三个点不能少</td></tr>
+      <tr><td><code>AT+BLEMODE?</code></td><td>查询角色：1 主机，2 从机</td></tr>
+      <tr><td><code>AT+MAC?</code></td><td>查询本机 MAC</td></tr>
+      <tr><td><code>AT+SCAN=ON</code></td><td>主机扫描附近从机</td></tr>
+      <tr><td><code>AT+BLESTA?</code></td><td>查询蓝牙连接状态</td></tr>
+      <tr><td><code>AT+CCADD?</code></td><td>查询当前连接的 MAC</td></tr>
+      <tr><td><code>AT+DISCONN</code></td><td>断开当前连接</td></tr>
+      <tr><td><code>AT+RELOAD</code></td><td>恢复参数并取消自动连接；使用后必须重新设置角色</td></tr>
+    </tbody>
+  </table>
+
+  <h2>故障最短路径</h2>
+  <table>
+    <thead><tr><th>现象</th><th>先检查</th></tr></thead>
+    <tbody>
+      <tr><td><code>AT...</code> 无 <code>OK</code></td><td>115200-8N1、ASCII、三个点、TX/RX 交叉、共地；再尝试 AT 引脚拉低上电</td></tr>
+      <tr><td>角色设置后没变化</td><td><code>BLEMODE</code> 后是否执行 <code>AT+RESET</code> 或重新上电</td></tr>
+      <tr><td>只能手动连，重启失效</td><td>主机是否使用 <code>CONADD</code>，而不是临时的 <code>CONN</code> / <code>LINK</code></td></tr>
+      <tr><td>主从已连但 MCU 无数据</td><td>CH9141K TXD 是否接 MCU RX、波特率是否均为 115200、串口引脚是否与当前工程一致</td></tr>
+      <tr><td>从车运行后突然刹车</td><td>领头车是否持续发送同步帧；当前从车 500 ms 收不到帧就制动</td></tr>
+    </tbody>
+  </table>
+
+  <p><a href="../lessons/0001-ch9141k-master-slave-setup.html">返回短课</a></p>
+</main>
+</body>
+</html>

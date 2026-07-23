@@ -41,7 +41,7 @@ static float TrackingPID_ApplyDeadband(float position, float deadband)
 void TrackingPID_Init(TrackingPID_t *pid)
 {
     pid->Config.Kp = 6.0f;
-    pid->Config.Kd = 0.0f;
+    pid->Config.Kd = 3.0f;
     pid->Config.Deadband = 0.6f;
     pid->Config.OutMax = 100.0f;
     pid->Config.OutMin = -100.0f;
@@ -129,7 +129,7 @@ TrackingPID_Status_t TrackingPID_Update(TrackingPID_t *pid,
     pid->LastError = pid->Error;
     pid->Error = -TrackingPID_ApplyDeadband(
         pid->Position, pid->Config.Deadband);
-    pid->Out = (pid->Config.Kp * pid->Error) +
+    pid->Out = -(pid->Config.Kp * pid->Error) +
                (pid->Config.Kd * (pid->Error - pid->LastError));
 
     if (pid->Out > pid->Config.OutMax) {

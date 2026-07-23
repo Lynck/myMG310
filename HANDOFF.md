@@ -1,10 +1,10 @@
-# myMG310slave Handoff
+# myMG31064Pin Handoff
 
 Updated: 2026-07-17
 
 ## Project
 
-- Follower workspace: `C:\Users\Lenovo\workspace_ccstheia\myMG310slave`
+- Follower workspace: `C:\Users\Lenovo\workspace_ccstheia\myMG31064Pin`
 - Leader workspace: `C:\Users\Lenovo\workspace_ccstheia\myMG310`
 - Remote: `https://github.com/Lynck/myMG310.git`
 - Branch: `codex/follower-car-backup`
@@ -142,12 +142,12 @@ The parser does not send acknowledgements. Task initialization overwrites line P
 Latest complete clean build passed on 2026-07-17:
 
 ```powershell
-cd C:\Users\Lenovo\workspace_ccstheia\myMG310slave\Debug
+cd C:\Users\Lenovo\workspace_ccstheia\myMG31064Pin\Debug
 D:\TI\ccs\utils\bin\gmake.exe clean
 D:\TI\ccs\utils\bin\gmake.exe -j4 all
 ```
 
-Result: `Debug\myMG310slave.out`, zero compiler/linker errors. SysConfig emitted informational retention and ADC/flash notes only. No hardware flashing or track validation was performed by Codex.
+Result: `Debug\myMG31064Pin.out`, zero compiler/linker errors. SysConfig emitted informational retention and ADC/flash notes only. No hardware flashing or track validation was performed by Codex.
 
 ## Suggested Skills
 

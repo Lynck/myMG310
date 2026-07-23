@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CH9141K 主从模式：一次配置，上电自动连接</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22><circle cx=%228%22 cy=%228%22 r=%227%22 fill=%22%231559a5%22/></svg>">
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+<main>
+  <p class="eyebrow">TI 杯 C 题 · 第 1 课</p>
+  <h1>一次配置，让两辆车上电自动连</h1>
+  <p class="lead">目标只有一个：领头车上电后主动连接跟随车，跟随车不需要按键，也不依赖手机或电脑。</p>
+
+  <section class="role-grid" aria-label="角色分配">
+    <div class="card"><strong>领头小车 = 主机</strong><br><code>AT+BLEMODE=1</code><br>主动发起连接和控制同步帧。</div>
+    <div class="card"><strong>跟随小车 = 从机</strong><br><code>AT+BLEMODE=2</code><br>上电等待主机连接和指令。</div>
+  </section>
+
+  <h2>准备：每次只配置一个模块</h2>
+  <ol>
+    <li>模块先从 MSPM0 拔下，接到 3.3 V 逻辑的 USB-TTL：TXD 与 RXD 交叉，GND 共地。</li>
+    <li>XCOM 2.3 或更新版设置为 <strong>115200、8 数据位、1 停止位、无校验、无流控</strong>，ASCII 发送。</li>
+    <li>发送精确的 <code>AT...</code>，三个点不能少；收到 <code>OK</code> 才算进入 AT 模式。</li>
+  </ol>
+  <div class="note">如果软件方式始终没有 <code>OK</code>，断电后把模块 AT 引脚接到同一个公共 GND 再上电。一个 GND 可以分成多路，并不是接了模块 GND 就“用完”了。最方便的做法是用面包板负电源轨：USB-TTL GND、CH9141K GND 和 CH9141K AT 三者接在同一排。配置完成后先断电，再移除 AT-GND；正常透传时 AT 应接 3.3 V 高电平，不能接 5 V。</div>
+  <pre>USB-TTL GND ──┬── CH9141K GND
+               └── CH9141K AT     （配置时拉低）</pre>
+
+  <h2>第一步：先配跟随车并记下 MAC</h2>
+  <pre>AT...
+AT+BLEMODE=2
+AT+MAC?
+AT+RESET</pre>
+  <p>把 <code>AT+MAC?</code> 返回的地址抄下来，例如 <code>B6:85:68:26:3B:38</code>。复位后重新发送 <code>AT...</code> 和 <code>AT+BLEMODE?</code>，确认返回角色为 <code>2</code>。</p>
+
+  <h2>第二步：配置领头车和自动重连</h2>
+  <pre>AT...
+AT+BLEMODE=1
+AT+RESET
+
+AT...
+AT+BLEMODE?
+AT+CONADD=B6:85:68:26:3B:38,000000
+AT+EXIT</pre>
+  <p>把示例 MAC 换成刚才记录的从机 MAC。默认连接密码是六个零。两份资料对 <code>CONADD</code> 是否同时显示 <code>LINK OK</code> 的描述不同，所以不要只盯一行返回；最终以掉电重连和数据透传为准。</p>
+  <div class="note"><strong>顺序要点：</strong>改完 <code>BLEMODE</code> 后需要 <code>RESET</code> 生效；写完 <code>CONADD</code> 后则用 <code>AT+EXIT</code> 回到透传态，不要在这里再随手复位。</div>
+
+  <h2>第三步：整车验证</h2>
+  <ol>
+    <li>两模块断电，接回各自 MSPM0 UART，先给跟随车上电，再给领头车上电。</li>
+    <li>领头车工程会约每 200 ms 发送一次 <code>C:t:r\r\n</code>；跟随车收到 <code>C:1:1</code> 后开始任务，收到 <code>C:1:0</code> 后制动。</li>
+    <li>关闭领头车或断开蓝牙；跟随车超过 500 ms 收不到同步帧时应自动制动。</li>
+  </ol>
+  <div class="note success">通过标准：连续断电重启三次都能自动连接；领头车启动/停止能同步；强制失联时跟随车在 500 ms 级别进入制动。</div>
+
+  <h2>一分钟自测</h2>
+  <div class="quiz" data-quiz data-answer="leader">
+    <p>哪辆车的蓝牙模块应该设为主机？</p>
+    <button type="button" data-choice="leader">领头小车</button>
+    <button type="button" data-choice="follower">跟随小车</button>
+    <p class="feedback" aria-live="polite"></p>
+  </div>
+
+  <p><a href="../reference/ch9141k-master-slave-cheatsheet.html">打开一页式接线与 AT 指令速查表</a></p>
+  <p>主资料：<a href="https://www.wch.cn/downloads/CH9141DS1_PDF.html">WCH CH9141 官方数据手册</a>。任何一步的实际返回和本课不同，都可以把完整串口记录发给我继续判断。</p>
+<footer>本课依据当前 myMG310 / myMG31064Pin 工程和用户提供的两份 CH9141K 说明书整理。</footer>
+</main>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

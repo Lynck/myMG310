@@ -61,7 +61,7 @@ static float MotorSpeed_FeedforwardCmd(float target_mps)
 
 static int8_t MotorSpeed_ReadDirA(void)
 {
-    int8_t dir = (DL_GPIO_readPins(ENC_A_DIR_PORT, ENC_A_DIR_PIN_18_PIN) != 0) ?
+    int8_t dir = (DL_GPIO_readPins(ENC_A_DIR_PORT, ENC_A_DIR_PIN_27_PIN) != 0) ?
                  MOTOR_SPEED_DIR_FORWARD : MOTOR_SPEED_DIR_REVERSE;
 
     return MOTOR_SPEED_A_DIR_HIGH_FORWARD ? dir : (int8_t)-dir;
@@ -69,7 +69,7 @@ static int8_t MotorSpeed_ReadDirA(void)
 
 static int8_t MotorSpeed_ReadDirB(void)
 {
-    int8_t dir = (DL_GPIO_readPins(ENC_B_DIR_PORT, ENC_B_DIR_PIN_25_PIN) != 0) ?
+    int8_t dir = (DL_GPIO_readPins(ENC_B_DIR_PORT, ENC_B_DIR_PIN_14_PIN) != 0) ?
                  MOTOR_SPEED_DIR_FORWARD : MOTOR_SPEED_DIR_REVERSE;
 
     return MOTOR_SPEED_B_DIR_HIGH_FORWARD ? dir : (int8_t)-dir;

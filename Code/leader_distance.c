@@ -29,6 +29,7 @@ void LeaderDistance_Init(void)
 bool LeaderDistance_Process(void)
 {
     uint16_t distance_mm;
+    float corrected_distance_cm;
 
     g_leader_distance_updated = false;
 
@@ -36,8 +37,14 @@ bool LeaderDistance_Process(void)
     if (VL53L0X_Process() && VL53L0X_GetDistance(&distance_mm) &&
         (distance_mm >= LEADER_DISTANCE_MIN_MM) &&
         (distance_mm <= LEADER_DISTANCE_MAX_MM)) {
+        corrected_distance_cm =
+            (float)distance_mm * 0.1f - LEADER_DISTANCE_INSTALL_OFFSET_CM;
+        if (corrected_distance_cm < 0.0f) {
+            corrected_distance_cm = 0.0f;
+        }
+
         g_leader_distance_raw = (float)distance_mm;
-        g_leader_distance_cm = (float)distance_mm * 0.1f;
+        g_leader_distance_cm = corrected_distance_cm;
         g_leader_distance_last_update_ms = tick_ms;
         g_leader_distance_valid = true;
         g_leader_distance_updated = true;

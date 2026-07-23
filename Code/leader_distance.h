@@ -6,6 +6,9 @@
 
 #define LEADER_DISTANCE_TIMEOUT_MS (200UL)
 
+/* 激光传感器到小车车头的安装距离，单位：cm。 */
+#define LEADER_DISTANCE_INSTALL_OFFSET_CM (3.0f)
+
 extern volatile float g_leader_distance_raw;
 extern volatile float g_leader_distance_cm;
 extern volatile bool g_leader_distance_updated;
